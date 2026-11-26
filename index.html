@@ -1481,6 +1481,7 @@
           }
         }
 
+        snapAllRootsToOrbit(true);
         setSyncStatus('synced', '已同步至雲端');
         syncBoardDOM();
       }, (error) => {
@@ -2231,6 +2232,37 @@
       const cy = ORBIT_CY + orbitR * Math.sin(angle);
       addBtn.style.left = `${(cx - 28).toFixed(1)}px`;
       addBtn.style.top = `${(cy - 28).toFixed(1)}px`;
+    }
+
+    function snapAllRootsToOrbit(saveToCloud = false) {
+      const orbitR = getOrbitRadius();
+      const adjusted = [];
+      for (const root of getRootNodes()) {
+        const cx = root.x + ROOT_HALF;
+        const cy = root.y + ROOT_HALF;
+        const dist = Math.hypot(cx - ORBIT_CX, cy - ORBIT_CY);
+        if (Math.abs(dist - orbitR) > 1.5) {
+          const angle = dist > 1 ? Math.atan2(cy - ORBIT_CY, cx - ORBIT_CX) : 0;
+          const nextX = Math.round((ORBIT_CX + orbitR * Math.cos(angle) - ROOT_HALF) * 100) / 100;
+          const nextY = Math.round((ORBIT_CY + orbitR * Math.sin(angle) - ROOT_HALF) * 100) / 100;
+          const dx = nextX - root.x;
+          const dy = nextY - root.y;
+          root.x = nextX;
+          root.y = nextY;
+          adjusted.push(root);
+          for (const descId of getDescendantIds(root.id)) {
+            const dn = state.nodes.get(descId);
+            if (dn) {
+              dn.x = Math.round((dn.x + dx) * 100) / 100;
+              dn.y = Math.round((dn.y + dy) * 100) / 100;
+              adjusted.push(dn);
+            }
+          }
+        }
+      }
+      if (saveToCloud && adjusted.length > 0) {
+        saveMultipleNodesToCloud(adjusted);
+      }
     }
 
     function getRootIdOf(nodeId) {
@@ -2999,13 +3031,15 @@
             </svg>
           </button>
 
-          <div class="px-4 py-2.5 mt-1 border-t border-zinc-200/80 flex items-center justify-between gap-1.5 bg-black/[0.025] rounded-b-[20px]">
+          <div data-role="child-footer" class="px-4 py-2.5 mt-1 border-t border-zinc-200/80 flex items-center ${node.type === 'scripture' ? 'justify-end' : 'justify-between'} gap-1.5 bg-black/[0.025] rounded-b-[20px]">
+            ${node.type === 'scripture' ? '' : `
             <button
               data-role="btn-ai-main"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-[#fdfce7] font-semibold text-[11px] transition"
             >
               <span data-role="btn-ai-label">AI 找經文</span>
             </button>
+            `}
 
             <div class="flex items-center gap-1">
               <button
@@ -3032,10 +3066,13 @@
         cardEl.querySelector('[data-role="btn-delete-node"]').addEventListener('click', (e) => {
           window.openConfirmDelete(e, node.id);
         });
-        cardEl.querySelector('[data-role="btn-ai-main"]').addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.findScriptureWithAI(node.id);
-        });
+        const aiBtn = cardEl.querySelector('[data-role="btn-ai-main"]');
+        if (aiBtn) {
+          aiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.findScriptureWithAI(node.id);
+          });
+        }
         cardEl.querySelector('[data-role="btn-add-reflection"]').addEventListener('click', (e) => {
           window.addChildBranch(e, node.id, 'reflection');
         });
@@ -3182,8 +3219,19 @@
 
       const aiMainBtn = cardEl.querySelector('[data-role="btn-ai-main"]');
       const aiLabel = cardEl.querySelector('[data-role="btn-ai-label"]');
-      aiMainBtn.disabled = isLoadingAI;
-      aiLabel.textContent = isLoadingAI ? '查考中...' : 'AI 找經文';
+      if (aiMainBtn) {
+        if (node.type === 'scripture') {
+          aiMainBtn.remove();
+          const footer = cardEl.querySelector('[data-role="child-footer"]');
+          if (footer) {
+            footer.classList.remove('justify-between');
+            footer.classList.add('justify-end');
+          }
+        } else {
+          aiMainBtn.disabled = isLoadingAI;
+          if (aiLabel) aiLabel.textContent = isLoadingAI ? '查考中...' : 'AI 找經文';
+        }
+      }
 
       const collapseBtn = cardEl.querySelector('[data-role="btn-collapse"]');
       if (childCount > 0) {
@@ -3496,7 +3544,10 @@
 
     function setupCardDrag(cardEl, nodeId) {
       let isDragging = false;
+      let isRootDrag = false;
       let startX = 0, startY = 0;
+      let rootStartOrbitAngle = 0;
+      let pointerStartOrbitAngle = 0;
       let dragStartPositions = new Map();
       let moved = false;
       let pointerDownInsideCard = false;
@@ -3510,6 +3561,7 @@
         if (!node) return;
 
         isDragging = true;
+        isRootDrag = isRootNode(node);
         moved = false;
         pointerDownInsideCard = Boolean(e.target && e.target.closest && e.target.closest('.orbital-root-card'));
         startX = e.clientX;
@@ -3534,6 +3586,15 @@
           }
           swayEntry.angle = 0;
           swayEntry.phaseTime = 0;
+        }
+
+        if (isRootDrag) {
+          const rootCx = node.x + ROOT_HALF;
+          const rootCy = node.y + ROOT_HALF;
+          rootStartOrbitAngle = Math.atan2(rootCy - ORBIT_CY, rootCx - ORBIT_CX);
+          const pointerWorldX = (e.clientX - state.panX) / state.scale;
+          const pointerWorldY = (e.clientY - state.panY) / state.scale;
+          pointerStartOrbitAngle = Math.atan2(pointerWorldY - ORBIT_CY, pointerWorldX - ORBIT_CX);
         }
 
         // 收集母集與所有階層子集（包含目前收合的子分支）
@@ -3569,13 +3630,43 @@
 
         const dx = (e.clientX - startX) / state.scale;
         const dy = (e.clientY - startY) / state.scale;
-        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+        const moveThreshold = isRootDrag ? 5 : 3;
+        if (Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold) moved = true;
 
-        for (const [id, orig] of dragStartPositions.entries()) {
-          const targetNode = state.nodes.get(id);
-          if (targetNode) {
-            targetNode.x = orig.x + dx;
-            targetNode.y = orig.y + dy;
+        if (isRootDrag) {
+          // 母集僅能沿著圓形軌道滑動，絕不脫離軌道半徑
+          const currWorldX = (e.clientX - state.panX) / state.scale;
+          const currWorldY = (e.clientY - state.panY) / state.scale;
+          const currPointerAngle = Math.atan2(currWorldY - ORBIT_CY, currWorldX - ORBIT_CX);
+          let deltaAngle = currPointerAngle - pointerStartOrbitAngle;
+          while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+          while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+
+          const orbitR = getOrbitRadius();
+          const newRootAngle = rootStartOrbitAngle + deltaAngle;
+          const rootNode = state.nodes.get(nodeId);
+          if (rootNode) {
+            rootNode.x = ORBIT_CX + orbitR * Math.cos(newRootAngle) - ROOT_HALF;
+            rootNode.y = ORBIT_CY + orbitR * Math.sin(newRootAngle) - ROOT_HALF;
+          }
+
+          for (const [id, orig] of dragStartPositions.entries()) {
+            if (id === nodeId) continue;
+            const targetNode = state.nodes.get(id);
+            if (targetNode) {
+              const { hw, hh } = getNodeHalfSize(targetNode);
+              const rotated = rotatePointAroundOrbit(orig.x, orig.y, deltaAngle, hw, hh);
+              targetNode.x = rotated.x;
+              targetNode.y = rotated.y;
+            }
+          }
+        } else {
+          for (const [id, orig] of dragStartPositions.entries()) {
+            const targetNode = state.nodes.get(id);
+            if (targetNode) {
+              targetNode.x = orig.x + dx;
+              targetNode.y = orig.y + dy;
+            }
           }
         }
 
@@ -3705,9 +3796,13 @@
 
     viewport.addEventListener('dblclick', (e) => {
       if (e.target.closest('.flow-node') || e.target.closest('#daily-verse-core') || e.target.closest('#orbit-add-btn')) return;
+      const worldX = (e.clientX - state.panX) / state.scale;
+      const worldY = (e.clientY - state.panY) / state.scale;
+      const angle = Math.atan2(worldY - ORBIT_CY, worldX - ORBIT_CX);
+      const orbitR = getOrbitRadius();
       pendingWorldPos = {
-        x: Math.round((e.clientX - state.panX) / state.scale - ROOT_HALF),
-        y: Math.round((e.clientY - state.panY) / state.scale - ROOT_HALF)
+        x: Math.round(ORBIT_CX + orbitR * Math.cos(angle) - ROOT_HALF),
+        y: Math.round(ORBIT_CY + orbitR * Math.sin(angle) - ROOT_HALF)
       };
       forceCreateAsOrbitRoot = true;
       window.openCreateModal('anxiety');
@@ -3874,6 +3969,8 @@
 
       if (createdFromOrbitBtn) {
         applyOrbitalRadialLayout();
+      } else if (!parentId) {
+        snapAllRootsToOrbit(true);
       }
 
       if (parentId) {
