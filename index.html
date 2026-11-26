@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>禱告節點流 — 暗黑心智畫布與 AI 聖經查考</title>
+  <title>Pryme 禱告牆 — 暗黑心智畫布與 AI 聖經查考</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: Inter & Noto Sans TC -->
@@ -41,7 +41,7 @@
       touch-action: none;
     }
 
-    /* 參考圖同款：深邃炭黑點陣無限畫布 */
+    /* 深邃炭黑點陣無限畫布 */
     #viewport {
       width: 100vw;
       height: 100vh;
@@ -112,7 +112,7 @@
 
     .flow-node.is-subtree-dragging {
       z-index: 55 !important;
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.7), 0 0 0 1.5px rgba(36, 239, 149, 0.45);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.7), 0 0 0 1.5px rgba(36, 239, 149, 0.5);
       transition: none !important;
     }
 
@@ -223,7 +223,7 @@
 <body>
 
   <!-- =========================================================
-       頂部導覽列 (對標參考圖頂部深色列)
+       頂部導覽列
        ========================================================= -->
   <header class="fixed top-0 left-0 right-0 h-16 z-50 bg-[#1a1a1e]/95 backdrop-blur-md border-b border-white/[0.07] px-4 lg:px-6 flex items-center justify-between gap-3">
     <!-- 左側 Brand Logo -->
@@ -242,8 +242,8 @@
       </div>
     </div>
 
-    <!-- 中央分頁篩選導覽 (參考圖中間橫排圖示+文字) -->
-    <nav class="hidden md:flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-full border border-white/[0.06]">
+    <!-- 中央分頁篩選導覽 -->
+    <nav class="hidden xl:flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-full border border-white/[0.06]">
       <button onclick="setFilter('all')" id="nav-filter-all" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-zinc-950 shadow transition">
         <span>✦</span><span>全部節點</span>
       </button>
@@ -261,13 +261,20 @@
       </button>
     </nav>
 
-    <!-- 右側雲端同步狀態與 Google Client ID 登入 -->
-    <div class="flex items-center gap-2.5">
+    <!-- 右側雲端同步狀態、API 設定按鈕與 Google Client ID 登入 -->
+    <div class="flex items-center gap-2">
       <!-- 雲端同步指示膠囊 -->
-      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs text-zinc-300">
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs text-zinc-300">
         <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        <span id="sync-text">連線雲端中</span>
+        <span id="sync-text">初始化中</span>
       </div>
+
+      <!-- API Key 與系統設定按鈕 -->
+      <button onclick="openSettingsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.07] hover:bg-white/[0.14] border border-white/10 text-xs font-medium text-zinc-200 transition" title="設定 Gemini API Key 並儲存至雲端">
+        <span>⚙️</span>
+        <span class="hidden sm:inline">設定</span>
+        <span id="api-key-badge" class="w-2 h-2 rounded-full bg-zinc-500"></span>
+      </button>
 
       <!-- Google 帳號登入區塊 -->
       <div id="auth-container" class="flex items-center">
@@ -302,7 +309,7 @@
   </main>
 
   <!-- =========================================================
-       左側懸浮深色工具箱面板 (對標參考圖左側 Integration 面板)
+       左側懸浮深色工具箱面板
        ========================================================= -->
   <aside id="left-sidebar" class="floating-sidebar fixed top-20 left-4 bottom-4 w-[248px] z-40 p-5 flex flex-col transition-transform duration-300 -translate-x-[120%] lg:translate-x-0">
     <div class="flex items-center justify-between mb-4">
@@ -327,7 +334,7 @@
       </button>
     </div>
 
-    <!-- 2 欄圓形白色圖示網格 (參考圖核心視覺元素) -->
+    <!-- 2 欄圓形白色圖示網格 -->
     <div class="grid grid-cols-2 gap-y-5 gap-x-3 overflow-y-auto no-scrollbar pb-4">
       <!-- 1. 新增焦慮 -->
       <button onclick="openCreateModal('anxiety')" class="flex flex-col items-center gap-2 group">
@@ -385,23 +392,23 @@
         <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">展開分支</span>
       </button>
 
-      <!-- 8. 收合全部分支 -->
-      <button onclick="toggleAllBranches(true)" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-xl font-bold text-zinc-900 group-hover:scale-105 group-active:scale-95 transition">
-          ⊟
+      <!-- 8. API Key 設定 -->
+      <button onclick="openSettingsModal()" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          ⚙️
         </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">收合分支</span>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">API 設定</span>
       </button>
     </div>
 
     <!-- 底部提示 -->
     <div class="mt-auto pt-3 border-t border-white/[0.07] text-[11px] text-zinc-400 leading-relaxed text-center">
-      雙擊畫布任意處可建立新節點<br/>拖曳右側彩色卡片可直接貼上
+      拖動母集卡片時子分支同步跟隨<br/>雙擊畫布任意處可建立新節點
     </div>
   </aside>
 
   <!-- =========================================================
-       左下角懸浮垂直控制膠囊 (對標參考圖 +, -, ×, 🗑 垂直膠囊)
+       左下角懸浮垂直控制膠囊 (+, -, ×, 🗑)
        ========================================================= -->
   <div class="fixed bottom-5 left-4 lg:left-[276px] z-40 bg-[#242429]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex flex-col items-center gap-1.5 shadow-2xl">
     <button onclick="zoomCanvas(0.15)" title="放大畫布" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-200 font-bold text-base flex items-center justify-center transition">
@@ -419,7 +426,7 @@
   </div>
 
   <!-- =========================================================
-       右側懸浮深色快速卡片面板 (對標參考圖右側 Add new integration 彩色卡片庫)
+       右側懸浮深色快速卡片面板
        ========================================================= -->
   <aside id="right-sidebar" class="floating-sidebar fixed top-20 right-4 bottom-4 w-[275px] z-40 p-5 flex flex-col transition-transform duration-300 translate-x-[120%] lg:translate-x-0">
     <div class="flex items-center justify-between mb-4">
@@ -427,7 +434,7 @@
       <h2 class="text-lg font-bold text-white tracking-tight w-full text-center">新增禱告卡片</h2>
     </div>
 
-    <!-- 白色膠囊篩選列 + 圓形深色滑桿按鈕 -->
+    <!-- 白色膠囊縮放指示列 -->
     <div class="relative flex items-center justify-between bg-white rounded-full p-1 pl-4 shadow-md mb-5">
       <span id="zoom-indicator" class="text-xs font-medium text-zinc-500">畫布縮放：100%</span>
       <button onclick="fitAllNodes()" title="自動適應視窗" class="w-8 h-8 rounded-full bg-[#1c1c20] text-white flex items-center justify-center shrink-0 hover:bg-zinc-800 transition text-xs">
@@ -435,7 +442,7 @@
       </button>
     </div>
 
-    <!-- 繽紛彩色模板卡片列表 (Lavender Purple, Neon Lime, Mint Green, Pure White) -->
+    <!-- 繽紛彩色模板卡片列表 -->
     <div class="space-y-3.5 overflow-y-auto no-scrollbar pb-4">
       <!-- 1. 薰衣草紫卡片 (#a58cf5) - 焦慮重擔 -->
       <div
@@ -584,7 +591,78 @@
   </div>
 
   <!-- =========================================================
-       自訂刪除確認彈窗 (絕不使用 confirm())
+       ⚙️ API Key 與雲端記憶設定彈窗
+       ========================================================= -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-[#222227] border border-white/10 rounded-[28px] w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-[#a58cf5] text-zinc-950 flex items-center justify-center text-base font-bold shadow">
+            ⚙️
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">AI 與雲端記憶設定</h3>
+            <p class="text-[11px] text-zinc-400">金鑰會自動同步儲存至您的雲端資料庫</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Gemini API Key 輸入區塊 -->
+        <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-bold text-white">Google Gemini API Key</label>
+            <span id="settings-key-status" class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">尚未設定</span>
+          </div>
+
+          <div class="relative flex items-center">
+            <input
+              type="password"
+              id="settings-gemini-key"
+              placeholder="貼上您的 AIzaSy... 金鑰"
+              class="w-full bg-[#222227] border border-white/10 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
+            />
+            <button
+              type="button"
+              onclick="toggleApiKeyVisibility()"
+              title="顯示 / 隱藏金鑰"
+              class="absolute right-2.5 text-zinc-400 hover:text-white text-xs px-1"
+            >
+              👁️
+            </button>
+          </div>
+
+          <p class="text-[11px] text-zinc-400 mt-2.5 leading-relaxed">
+            設定後即使部署在 GitHub Pages 也能使用完整 Gemini AI 經文查考；若留空則自動使用內建和合本經文智能匹配引擎。
+          </p>
+        </div>
+
+        <!-- 雲端同步狀態說明 -->
+        <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3.5 flex items-center justify-between text-xs">
+          <span class="text-zinc-300">雲端資料庫記憶狀態</span>
+          <span id="settings-cloud-state" class="font-semibold text-[#24ef95]">檢查中...</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 mt-6">
+        <button onclick="clearSavedApiKey()" class="px-3.5 py-2.5 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold transition">
+          清除金鑰
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeSettingsModal()" class="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-zinc-300 text-xs font-semibold transition">
+            取消
+          </button>
+          <button onclick="saveSettingsToCloud()" class="px-5 py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 text-xs font-bold shadow-lg transition">
+            💾 儲存至雲端
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       自訂刪除確認彈窗
        ========================================================= -->
   <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
     <div class="bg-[#222227] border border-white/10 rounded-[26px] w-full max-w-sm p-6 shadow-2xl">
@@ -621,18 +699,26 @@
         <button onclick="closeGoogleAuthModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
       </div>
 
-      <!-- 官方 Google 按鈕渲染容器 -->
+      <!-- 官方 Google 按鈕與 OAuth 網域白名單提示 -->
       <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4 mb-4 flex flex-col items-center gap-3">
         <div id="gis-button-container" class="min-h-[40px] flex items-center justify-center"></div>
         <button onclick="launchGoogleOAuthPopup()" class="w-full py-2.5 px-4 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-xs shadow transition">
           開啟 Google 帳號選擇視窗
         </button>
+        <div class="w-full bg-black/40 rounded-xl p-2.5 flex items-center justify-between gap-2 border border-white/5">
+          <div class="text-[10px] text-zinc-400 truncate">
+            目前網域：<span id="current-origin-display" class="text-zinc-200 font-mono"></span>
+          </div>
+          <button onclick="copyCurrentOrigin()" class="shrink-0 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] text-white font-semibold">
+            複製網域
+          </button>
+        </div>
         <p id="origin-hint-text" class="text-[11px] text-amber-300/90 text-center leading-relaxed"></p>
       </div>
 
-      <!-- 預覽環境快速連結帳號表單 -->
+      <!-- 快速連結帳號表單 -->
       <div class="border-t border-white/10 pt-4">
-        <p class="text-xs font-semibold text-zinc-300 mb-2">預覽模式快速連結（無需等待網域審核）</p>
+        <p class="text-xs font-semibold text-zinc-300 mb-2">快速連結雲端帳號</p>
         <div class="space-y-2.5">
           <input
             type="text"
@@ -676,6 +762,7 @@
       getFirestore,
       collection,
       doc,
+      getDoc,
       setDoc,
       updateDoc,
       deleteDoc,
@@ -684,21 +771,38 @@
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ==========================================
-    // 1. 全域狀態與 Firebase 設定
+    // 1. 全域狀態與安全雲端初始化 (相容 GitHub Pages)
     // ==========================================
     const GOOGLE_CLIENT_ID = "865993916714-o0h883itsqd3lvgbatmkgqrqqhbrmuhf.apps.googleusercontent.com";
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'pryme-prayer-mindmap';
-    const firebaseConfig = typeof __firebase_config !== 'undefined'
-      ? JSON.parse(__firebase_config)
-      : { apiKey: "", authDomain: "", projectId: "" };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    let app = null;
+    let auth = null;
+    let db = null;
+    let cloudAvailable = false;
+
+    try {
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        const parsedConfig = typeof __firebase_config === 'string'
+          ? JSON.parse(__firebase_config)
+          : __firebase_config;
+        if (parsedConfig && parsedConfig.apiKey) {
+          app = initializeApp(parsedConfig);
+          auth = getAuth(app);
+          db = getFirestore(app);
+          cloudAvailable = true;
+        }
+      }
+    } catch (initErr) {
+      console.warn("Running in standalone mode (no external Firebase config):", initErr);
+      cloudAvailable = false;
+    }
 
     let currentUser = null;
     let googleProfile = null;
     let unsubscribeNodes = null;
+    let unsubscribeSettings = null;
+    let savedGeminiApiKey = "";
 
     const state = {
       nodes: new Map(),           // nodeId -> node data
@@ -748,15 +852,22 @@
       dot.className = 'w-2 h-2 rounded-full ';
       if (status === 'syncing') dot.className += 'bg-[#e4f33b] animate-ping';
       else if (status === 'synced') dot.className += 'bg-[#24ef95]';
+      else if (status === 'standalone') dot.className += 'bg-[#a58cf5]';
       else dot.className += 'bg-rose-500';
     }
 
     // ==========================================
-    // 3. Google Client ID 登入與 Firebase Auth
+    // 3. Google Client ID 登入與雲端驗證
     // ==========================================
     let googleTokenClient = null;
 
     async function initAuthAndCloud() {
+      if (!cloudAvailable || !auth) {
+        setSyncStatus('standalone', '畫布已就緒');
+        await seedInitialWorkflow();
+        return;
+      }
+
       try {
         setSyncStatus('syncing', '連線雲端中...');
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -766,29 +877,34 @@
         }
       } catch (err) {
         console.error("Auth init error:", err);
-        setSyncStatus('error', '離線模式');
+        cloudAvailable = false;
+        setSyncStatus('standalone', '本機畫布模式');
+        if (state.nodes.size === 0) {
+          await seedInitialWorkflow();
+        }
       }
     }
 
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      if (user) {
-        updateAuthUI();
-        subscribeToPrayerNodes(user.uid);
-      }
-    });
+    if (auth) {
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+          updateAuthUI();
+          subscribeToUserSettings(user.uid);
+          subscribeToPrayerNodes(user.uid);
+        }
+      });
+    }
 
     function initGoogleIdentityClients() {
       if (!window.google || !window.google.accounts) return false;
       try {
-        // 1. 初始化 ID Credential (支援按鈕渲染)
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
           auto_select: false
         });
 
-        // 2. 初始化主動彈窗 OAuth2 Token Client (點擊即強制開啟 Google 帳號選擇視窗)
         if (window.google.accounts.oauth2 && !googleTokenClient) {
           googleTokenClient = window.google.accounts.oauth2.initTokenClient({
             client_id: GOOGLE_CLIENT_ID,
@@ -796,14 +912,13 @@
             prompt: 'select_account',
             callback: handleGoogleOAuthTokenResponse,
             error_callback: (err) => {
-              console.warn("OAuth popup blocked or origin mismatch:", err);
-              openGoogleAuthModal("目前預覽環境的網域尚未加入 Google OAuth 白名單，或瀏覽器封鎖了彈跳視窗。");
+              console.warn("OAuth popup notice:", err);
+              openGoogleAuthModal("若未能彈出視窗，請確認目前網域已加入 Google OAuth 白名單，或直接使用下方快速連結。");
             }
           });
         }
         return true;
       } catch (e) {
-        console.warn("GIS init notice:", e);
         return false;
       }
     }
@@ -815,7 +930,7 @@
     async function handleGoogleOAuthTokenResponse(tokenResponse) {
       if (!tokenResponse || !tokenResponse.access_token) return;
       try {
-        setSyncStatus('syncing', '正在取得 Google 個人資料...');
+        setSyncStatus('syncing', '取得 Google 資料中...');
         const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
         });
@@ -829,17 +944,15 @@
 
         window.closeGoogleAuthModal();
         updateAuthUI();
-        setSyncStatus('synced', '已同步至雲端');
-        showToast(`✨ 歡迎回來，${googleProfile.name}！已連接 Google 雲端`, 'success');
+        setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
+        showToast(`✨ 歡迎回來，${googleProfile.name}！`, 'success');
       } catch (err) {
-        console.error("Fetch Google userinfo error:", err);
         showToast("無法讀取 Google 帳號資訊，請改用下方快速連結", "warning");
       }
     }
 
     async function handleGoogleCredentialResponse(response) {
       try {
-        setSyncStatus('syncing', '正在驗證 Google 帳號...');
         const base64Url = response.credential.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
@@ -852,15 +965,17 @@
           picture: payload.picture
         };
 
-        try {
-          const credential = GoogleAuthProvider.credential(response.credential);
-          await signInWithCredential(auth, credential);
-        } catch (_) {}
+        if (auth) {
+          try {
+            const credential = GoogleAuthProvider.credential(response.credential);
+            await signInWithCredential(auth, credential);
+          } catch (_) {}
+        }
 
         window.closeGoogleAuthModal();
         updateAuthUI();
-        setSyncStatus('synced', '已同步至雲端');
-        showToast(`✨ 歡迎回來，${googleProfile.name}！已連接雲端存檔`, 'success');
+        setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
+        showToast(`✨ 歡迎回來，${googleProfile.name}！`, 'success');
       } catch (err) {
         showToast("Google 登入驗證失敗，請再試一次", "error");
       }
@@ -868,24 +983,22 @@
 
     window.triggerGoogleSignIn = function () {
       const ready = initGoogleIdentityClients();
-      // 偵測是否處於受限的預覽 iframe (如 blob: 或 googleusercontent 沙盒)
       const currentOrigin = window.location.origin || '';
-      const isSandboxedPreview = !currentOrigin || currentOrigin === 'null' || currentOrigin.includes('googleusercontent.com') || currentOrigin.includes('webcontainer');
+      const isSandboxed = !currentOrigin || currentOrigin === 'null' || currentOrigin.includes('googleusercontent.com') || currentOrigin.includes('webcontainer');
 
-      if (ready && googleTokenClient && !isSandboxedPreview) {
+      if (ready && googleTokenClient && !isSandboxed) {
         try {
           googleTokenClient.requestAccessToken({ prompt: 'select_account' });
           return;
         } catch (err) {
-          console.warn("requestAccessToken error:", err);
+          console.warn(err);
         }
       }
 
-      // 若處於預覽沙盒環境或未載入完成，開啟清晰引導視窗，避免按鈕點擊毫無反應
       openGoogleAuthModal(
-        isSandboxedPreview
-          ? `偵測到目前為預覽沙盒網域（${currentOrigin || 'sandbox'}），Google 安全性政策會阻擋未登記網域的彈窗；您可以直接點擊下方按鈕嘗試授權，或輸入信箱立即連結雲端。`
-          : "請選擇下方的 Google 登入按鈕開啟帳號視窗："
+        isSandboxed
+          ? "目前處於受限預覽網域，Google 安全性政策會阻擋未登記網域的彈窗；若部署至 GitHub Pages，請將上方網址加入 Google Cloud Console 的「已授權的 JavaScript 來源」。"
+          : "請點擊下方按鈕開啟 Google 帳號選擇視窗："
       );
     };
 
@@ -905,8 +1018,12 @@
     function openGoogleAuthModal(hintMessage = '') {
       const modal = document.getElementById('google-auth-modal');
       const hintEl = document.getElementById('origin-hint-text');
+      const originDisplay = document.getElementById('current-origin-display');
       const btnContainer = document.getElementById('gis-button-container');
 
+      if (originDisplay) {
+        originDisplay.textContent = window.location.origin || '未知網域';
+      }
       if (hintEl) {
         hintEl.textContent = hintMessage;
       }
@@ -928,13 +1045,24 @@
       modal.classList.add('flex');
     }
 
+    window.copyCurrentOrigin = function () {
+      const originText = window.location.origin || '';
+      const tempInput = document.createElement('input');
+      tempInput.value = originText;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast(`已複製網域：${originText}`, "success");
+    };
+
     window.closeGoogleAuthModal = function () {
       const modal = document.getElementById('google-auth-modal');
       modal.classList.add('hidden');
       modal.classList.remove('flex');
     };
 
-    window.submitQuickGoogleLink = async function () {
+    window.submitQuickGoogleLink = function () {
       const nameVal = document.getElementById('quick-google-name').value.trim();
       const emailVal = document.getElementById('quick-google-email').value.trim();
       if (!emailVal && !nameVal) {
@@ -948,11 +1076,15 @@
       };
       window.closeGoogleAuthModal();
       updateAuthUI();
-      setSyncStatus('synced', '已同步至雲端');
-      showToast(`✨ 已連結帳號「${googleProfile.name}」，所有節點已同步保存！`, "success");
+      setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
+      showToast(`✨ 已連結帳號「${googleProfile.name}」！`, "success");
     };
 
     async function fallbackFirebaseGooglePopup() {
+      if (!auth) {
+        showToast("請使用下方的「立即連結雲端帳號」完成登入！", "info");
+        return;
+      }
       try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -968,14 +1100,18 @@
           showToast("✨ 已透過 Google 登入並同步雲端！", "success");
         }
       } catch (err) {
-        showToast("預覽環境無法開啟外部 OAuth 視窗，請使用下方的「立即連結雲端帳號」即可保存！", "warning");
+        showToast("請確認此網域已加入 OAuth 白名單，或直接使用下方快速連結！", "warning");
       }
     }
 
     window.handleSignOut = async function () {
       googleProfile = null;
-      await signOut(auth);
-      await signInAnonymously(auth);
+      if (auth) {
+        try {
+          await signOut(auth);
+          await signInAnonymously(auth);
+        } catch (_) {}
+      }
       updateAuthUI();
       showToast("已登出 Google 帳號", "info");
     };
@@ -995,7 +1131,7 @@
             }
             <div class="text-left leading-tight hidden sm:block">
               <div class="text-xs font-semibold text-white max-w-[96px] truncate">${escapeHtml(displayName)}</div>
-              <div class="text-[9px] text-zinc-400">雲端同步中</div>
+              <div class="text-[9px] text-zinc-400">已連結雲端</div>
             </div>
             <button onclick="handleSignOut()" class="text-[11px] text-zinc-400 hover:text-rose-400 ml-1">登出</button>
           </div>
@@ -1016,14 +1152,126 @@
     }
 
     // ==========================================
-    // 4. Firestore 即時同步 (嚴格遵守路徑與查詢規範)
+    // 4. API Key 設定面板與雲端記憶 (Firestore)
+    // ==========================================
+    function subscribeToUserSettings(uid) {
+      if (!db || !uid) return;
+      if (unsubscribeSettings) unsubscribeSettings();
+
+      const settingsDocRef = doc(db, 'artifacts', appId, 'users', uid, 'settings', 'preferences');
+      unsubscribeSettings = onSnapshot(settingsDocRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (typeof data.geminiApiKey === 'string') {
+            savedGeminiApiKey = data.geminiApiKey;
+            updateApiKeyIndicator();
+          }
+        }
+      }, (err) => {
+        console.warn("Settings snapshot error:", err);
+      });
+    }
+
+    function updateApiKeyIndicator() {
+      const badge = document.getElementById('api-key-badge');
+      const statusEl = document.getElementById('settings-key-status');
+      const hasKey = Boolean(savedGeminiApiKey && savedGeminiApiKey.trim().length > 0);
+
+      if (badge) {
+        badge.className = hasKey
+          ? 'w-2 h-2 rounded-full bg-[#24ef95]'
+          : 'w-2 h-2 rounded-full bg-zinc-500';
+      }
+      if (statusEl) {
+        statusEl.textContent = hasKey ? '已記憶雲端金鑰' : '尚未設定';
+        statusEl.className = hasKey
+          ? 'text-[10px] px-2 py-0.5 rounded-full bg-[#24ef95]/20 text-[#24ef95] font-bold'
+          : 'text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400';
+      }
+    }
+
+    window.openSettingsModal = function () {
+      const modal = document.getElementById('settings-modal');
+      const input = document.getElementById('settings-gemini-key');
+      const cloudStateEl = document.getElementById('settings-cloud-state');
+
+      if (input) {
+        input.type = 'password';
+        input.value = savedGeminiApiKey || '';
+      }
+      if (cloudStateEl) {
+        cloudStateEl.textContent = (cloudAvailable && currentUser)
+          ? '已連線雲端（自動跨裝置同步）'
+          : '目前為單機畫布模式（本次工作階段有效）';
+      }
+      updateApiKeyIndicator();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    };
+
+    window.closeSettingsModal = function () {
+      const modal = document.getElementById('settings-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
+
+    window.toggleApiKeyVisibility = function () {
+      const input = document.getElementById('settings-gemini-key');
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+    };
+
+    window.saveSettingsToCloud = async function () {
+      const input = document.getElementById('settings-gemini-key');
+      const keyVal = input ? input.value.trim() : '';
+      savedGeminiApiKey = keyVal;
+      updateApiKeyIndicator();
+      window.closeSettingsModal();
+
+      if (cloudAvailable && db && currentUser) {
+        setSyncStatus('syncing', '正在雲端記憶設定...');
+        try {
+          const settingsDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'preferences');
+          await setDoc(settingsDocRef, {
+            geminiApiKey: keyVal,
+            updatedAt: Date.now()
+          }, { merge: true });
+          setSyncStatus('synced', '已同步至雲端');
+          showToast("💾 API Key 已儲存並記憶至您的雲端！", "success");
+        } catch (err) {
+          console.error("Save settings error:", err);
+          setSyncStatus('error', '設定同步失敗');
+          showToast("雲端寫入異常，目前先套用於本次工作階段", "warning");
+        }
+      } else {
+        showToast("✅ API Key 已套用於本次工作階段！", "success");
+      }
+    };
+
+    window.clearSavedApiKey = async function () {
+      savedGeminiApiKey = '';
+      const input = document.getElementById('settings-gemini-key');
+      if (input) input.value = '';
+      updateApiKeyIndicator();
+
+      if (cloudAvailable && db && currentUser) {
+        try {
+          const settingsDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'preferences');
+          await setDoc(settingsDocRef, { geminiApiKey: '', updatedAt: Date.now() }, { merge: true });
+        } catch (_) {}
+      }
+      showToast("已清除記憶的 API Key", "info");
+    };
+
+    // ==========================================
+    // 5. Firestore 即時同步與節點資料操作
     // ==========================================
     function getNodesCollectionRef(uid) {
       return collection(db, 'artifacts', appId, 'users', uid, 'prayer_nodes');
     }
 
     function subscribeToPrayerNodes(uid) {
-      if (!uid) return;
+      if (!db || !uid) return;
       if (unsubscribeNodes) unsubscribeNodes();
 
       setSyncStatus('syncing', '同步畫布中...');
@@ -1039,13 +1287,11 @@
         snapshot.forEach((docSnap) => {
           const id = docSnap.id;
           incomingIds.add(id);
-          // 若使用者正在拖曳此母集或子集卡片，跳過座標覆蓋以維持 100% 順滑
           if (state.draggingNodeIds.has(id)) return;
           const data = docSnap.data();
           state.nodes.set(id, { id, ...data });
         });
 
-        // 移除雲端已刪除的節點
         for (const existingId of [...state.nodes.keys()]) {
           if (!incomingIds.has(existingId) && !state.draggingNodeIds.has(existingId)) {
             state.nodes.delete(existingId);
@@ -1061,7 +1307,7 @@
     }
 
     async function saveNodeToCloud(node) {
-      if (!currentUser) return;
+      if (!cloudAvailable || !db || !currentUser) return;
       setSyncStatus('syncing', '儲存中...');
       try {
         const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', node.id);
@@ -1074,7 +1320,7 @@
     }
 
     async function saveMultipleNodesToCloud(nodesList) {
-      if (!currentUser || !nodesList || nodesList.length === 0) return;
+      if (!cloudAvailable || !db || !currentUser || !nodesList || nodesList.length === 0) return;
       setSyncStatus('syncing', '儲存中...');
       try {
         const batch = writeBatch(db);
@@ -1096,7 +1342,7 @@
       Object.assign(existing, fields, { updatedAt: Date.now() });
       syncBoardDOM();
 
-      if (!currentUser) return;
+      if (!cloudAvailable || !db || !currentUser) return;
       setSyncStatus('syncing', '儲存中...');
       try {
         const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', nodeId);
@@ -1130,7 +1376,7 @@
       syncBoardDOM();
       showToast("已移除節點與其子分支", "info");
 
-      if (!currentUser) return;
+      if (!cloudAvailable || !db || !currentUser) return;
       setSyncStatus('syncing', '移除中...');
       try {
         for (const id of toDelete) {
@@ -1143,7 +1389,6 @@
       }
     }
 
-    // 初始工作流範例節點 (垂直樹狀 flow 佈局，還原參考圖美感)
     async function seedInitialWorkflow() {
       const now = Date.now();
       const rootId = 'node-root-1';
@@ -1218,8 +1463,92 @@
     }
 
     // ==========================================
-    // 5. Gemini AI 聖經經文查考引擎
+    // 6. Gemini AI 聖經經文查考引擎 + 和合本智能匹配後備
     // ==========================================
+    const CUV_BIBLE_KNOWLEDGE_BASE = [
+      {
+        keywords: ['焦慮', '掛慮', '擔心', '不安', '壓力', '緊張', '害怕', '恐懼', '失眠'],
+        verses: [
+          {
+            reference: '彼得前書 5:7',
+            verseText: '你們要將一切的憂慮卸給神，因為他顧念你們。',
+            encouragement: '神親自顧念你的每一個重擔，現在就可以安心卸下交給祂。'
+          },
+          {
+            reference: '約翰福音 14:27',
+            verseText: '我留下平安給你們；我將我的平安賜給你們。我所賜的，不像世人所賜的。你們心裡不要憂愁，也不要膽怯。',
+            encouragement: '主所賜的平安超越環境的風浪，深呼吸領受這份屬天的安息。'
+          }
+        ]
+      },
+      {
+        keywords: ['工作', '未來', '方向', '迷惘', '決定', '智慧', '選擇', '學業', '考試'],
+        verses: [
+          {
+            reference: '箴言 3:5-6',
+            verseText: '你要專心仰賴耶和華，不可倚靠自己的聰明，在你一切所行的事上都要認定他，他必指引你的路。',
+            encouragement: '不必獨自算計所有下一步，認定神，祂必為你鋪平前方的道路。'
+          },
+          {
+            reference: '耶利米書 29:11',
+            verseText: '耶和華說：我知道我向你們所懷的意念是賜平安的意念，不是降災禍的意念，要叫你們末後有指望。',
+            encouragement: '神對你的未來懷抱著平安與盼望的藍圖，放心交託給祂帶領。'
+          }
+        ]
+      },
+      {
+        keywords: ['疲憊', '軟弱', '無力', '累', '辛苦', '撐不住', '困難', '挑戰'],
+        verses: [
+          {
+            reference: '馬太福音 11:28',
+            verseText: '凡勞苦擔重擔的人可以到我這裡來，我就使你們得安息。',
+            encouragement: '累了就來到主面前歇息，祂從不責備你的軟弱，反而要親自更新你。'
+          },
+          {
+            reference: '以賽亞書 40:31',
+            verseText: '但那等候耶和華的必從新得力。他們必如鷹展翅上騰；他們奔跑卻不困倦，行走卻不疲乏。',
+            encouragement: '在安靜等候中，神正為你重新注入如鷹展翅的力量。'
+          }
+        ]
+      },
+      {
+        keywords: ['感謝', '感恩', '讚美', '恩典', '喜樂', '祝福', '開心', '幫助'],
+        verses: [
+          {
+            reference: '帖撒羅尼迦前書 5:16-18',
+            verseText: '要常常喜樂，不住的禱告，凡事謝恩；因為這是神在基督耶穌裡向你們所定的旨意。',
+            encouragement: '數算恩典的心會開啟更多祝福的門，願喜樂持續充滿你的生命。'
+          },
+          {
+            reference: '詩篇 103:2',
+            verseText: '我的心哪，你要稱頌耶和華！不可忘記他的一切恩惠！',
+            encouragement: '把今天所領受的恩惠記在心版上，成為日後信心的見證。'
+          }
+        ]
+      }
+    ];
+
+    function matchBuiltInScriptures(text) {
+      const lower = (text || '').toLowerCase();
+      for (const group of CUV_BIBLE_KNOWLEDGE_BASE) {
+        if (group.keywords.some(k => lower.includes(k))) {
+          return group.verses;
+        }
+      }
+      return [
+        {
+          reference: '詩篇 46:1',
+          verseText: '神是我們的避難所，是我們的力量，是我們在患難中隨時的幫助。',
+          encouragement: '無論此刻你正在經歷什麼，神都是你隨時可得的力量與避難所。'
+        },
+        {
+          reference: '羅馬書 8:28',
+          verseText: '我們曉得萬事都互相效力，叫愛神的人得益處，就是按他旨意被召的人。',
+          encouragement: '相信神正在每一件大小事中動工，為你編織美好的益處。'
+        }
+      ];
+    }
+
     window.findScriptureWithAI = async function (nodeId) {
       const node = state.nodes.get(nodeId);
       if (!node || state.aiLoadingIds.has(nodeId)) return;
@@ -1272,23 +1601,32 @@
         }
       };
 
-      const apiKey = "";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+      const activeApiKey = savedGeminiApiKey ? savedGeminiApiKey.trim() : "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${encodeURIComponent(activeApiKey)}`;
+
+      let verses = [];
+      let usedBuiltInFallback = false;
 
       try {
         const result = await fetchWithExponentialBackoff(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        });
+        }, 1);
 
         const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!jsonText) throw new Error("Empty AI response");
 
         const parsed = JSON.parse(jsonText);
-        const verses = parsed.verses || [];
-        const existingChildren = getChildrenOf(nodeId);
+        verses = parsed.verses || [];
+      } catch (err) {
+        // 若部署在外部網站且尚未設定 API Key，自動啟用內建和合本經文智能匹配
+        verses = matchBuiltInScriptures(`${node.title} ${node.content}`);
+        usedBuiltInFallback = true;
+      }
 
+      try {
+        const existingChildren = getChildrenOf(nodeId);
         for (let i = 0; i < verses.length; i++) {
           const v = verses[i];
           const newId = 'node-' + crypto.randomUUID().slice(0, 8);
@@ -1299,7 +1637,7 @@
             type: 'scripture',
             title: v.reference,
             content: `「${v.verseText}」\n💡 ${v.encouragement}`,
-            reference: '和合本 · AI 聖經應許',
+            reference: usedBuiltInFallback ? '和合本 · 聖經經文匹配' : '和合本 · AI 聖經應許',
             x: Math.round(node.x + colOffset),
             y: Math.round(node.y + 275),
             collapsed: false,
@@ -1313,9 +1651,6 @@
         }
 
         showToast(`📜 已為您展開 ${verses.length} 則聖經應許分支！`, "success");
-      } catch (err) {
-        console.error("AI scripture search failed:", err);
-        showToast("AI 查考經文暫時忙碌，請稍後再試", "error");
       } finally {
         state.aiLoadingIds.delete(nodeId);
         syncBoardDOM();
@@ -1327,7 +1662,6 @@
         window.findScriptureWithAI(state.selectedNodeId);
         return;
       }
-      // 若尚未選取卡片，自動選取第一張可見的焦慮或禱告卡片
       const firstNode = [...state.nodes.values()].find(n => !isNodeHiddenByCollapse(n) && n.type !== 'scripture')
         || [...state.nodes.values()].find(n => !isNodeHiddenByCollapse(n));
       if (firstNode) {
@@ -1339,8 +1673,8 @@
       }
     };
 
-    async function fetchWithExponentialBackoff(url, options, maxRetries = 3) {
-      let delay = 1000;
+    async function fetchWithExponentialBackoff(url, options, maxRetries = 2) {
+      let delay = 800;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           const response = await fetch(url, options);
@@ -1355,7 +1689,7 @@
     }
 
     // ==========================================
-    // 6. XMind 樹狀分支展開 / 收合與排版邏輯
+    // 7. XMind 樹狀分支展開 / 收合與排版邏輯
     // ==========================================
     function getChildrenOf(parentId) {
       const list = [];
@@ -1415,7 +1749,6 @@
       showToast(shouldCollapse ? "已收合所有子分支" : "已展開所有子分支", "info");
     };
 
-    // 在任意節點下方/旁邊新增分支
     window.addChildBranch = async function (e, parentId, type = 'reflection') {
       e.stopPropagation();
       const parent = state.nodes.get(parentId);
@@ -1462,7 +1795,6 @@
       }, 40);
     };
 
-    // 自動垂直樹狀工作流排版 (對標參考圖層級結構)
     window.autoLayoutTree = async function () {
       const roots = [];
       for (const node of state.nodes.values()) {
@@ -1508,7 +1840,7 @@
     };
 
     // ==========================================
-    // 7. 無閃爍增量 DOM 渲染引擎 (In-Place Diffing)
+    // 8. 無閃爍增量 DOM 渲染引擎 (In-Place Diffing)
     // ==========================================
     function getNodeVisualMeta(type, answered) {
       if (answered) {
@@ -1526,7 +1858,7 @@
         case 'anxiety':
           return {
             floatingBadge: '🔥 焦慮重擔',
-            floatingBadgeClass: 'bg-[#ef4444] text-white', // 參考圖同款紅色浮動標籤
+            floatingBadgeClass: 'bg-[#ef4444] text-white',
             iconPrimary: '🔥',
             iconSecondary: '🙏',
             categoryName: '焦慮禱告',
@@ -1587,11 +1919,9 @@
           nodesContainer.appendChild(cardEl);
         }
 
-        // 就地更新卡片屬性與內容 (不摧毀 DOM，徹底杜絕閃爍！)
         updateNodeElementInPlace(cardEl, node, query);
       }
 
-      // 移除不再可見或已刪除的 DOM 節點
       for (const [id, el] of state.nodeElements.entries()) {
         if (!visibleIds.has(id)) {
           el.remove();
@@ -1608,13 +1938,10 @@
       cardEl.dataset.nodeId = node.id;
 
       cardEl.innerHTML = `
-        <!-- 頂部連線端口 -->
         <div class="node-port node-port-top" data-role="port-top"></div>
 
-        <!-- 左上浮動狀態標籤 (參考圖 ! Error 紅色膠囊風格) -->
         <div data-role="floating-badge" class="absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide"></div>
 
-        <!-- 卡片頂部圖示與圓形功能按鈕 [ ••• | × | ✓ ] -->
         <div class="flex items-center justify-between px-4 pt-5 pb-2">
           <div class="flex items-center gap-1.5">
             <span data-role="icon-1" class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm shadow-inner"></span>
@@ -1623,7 +1950,6 @@
             <span data-role="cat-label" class="text-[11px] font-semibold text-zinc-400 ml-1"></span>
           </div>
 
-          <!-- 參考圖同款右上角三顆圓形按鈕 -->
           <div class="flex items-center gap-1">
             <button data-role="btn-ai-mini" title="AI 尋找契合經文" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold flex items-center justify-center transition">•••</button>
             <button data-role="btn-del" title="移除此卡片" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-rose-100 text-zinc-600 hover:text-rose-600 text-[11px] font-bold flex items-center justify-center transition">✕</button>
@@ -1631,7 +1957,6 @@
           </div>
         </div>
 
-        <!-- 卡片可編輯內容區 -->
         <div class="px-4 py-1.5 space-y-1">
           <input
             type="text"
@@ -1650,7 +1975,6 @@
           <div data-role="ref-text" class="text-[10px] font-semibold text-purple-600 hidden"></div>
         </div>
 
-        <!-- 卡片底部快速操作列 -->
         <div class="px-4 py-2.5 mt-1 border-t border-zinc-100 flex items-center justify-between gap-1.5 bg-zinc-50/70 rounded-b-[22px]">
           <button
             data-role="btn-ai-main"
@@ -1672,14 +1996,11 @@
           </div>
         </div>
 
-        <!-- 底部連線端口 -->
         <div class="node-port node-port-bottom" data-role="port-bottom"></div>
 
-        <!-- XMind 展開 / 收合分支按鈕 -->
         <button data-role="btn-collapse" class="xmind-collapse-pill hidden"></button>
       `;
 
-      // 綁定內部靜態事件
       const titleInput = cardEl.querySelector('[data-role="input-title"]');
       titleInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { title: e.target.value }));
 
@@ -1720,14 +2041,12 @@
       const isLoadingAI = state.aiLoadingIds.has(node.id);
       const isSelected = state.selectedNodeId === node.id;
 
-      // 篩選與搜尋淡化
       const matchesFilter = state.filterType === 'all' || node.type === state.filterType;
       const matchesSearch = !query ||
         (node.title && node.title.toLowerCase().includes(query)) ||
         (node.content && node.content.toLowerCase().includes(query));
       const isDimmed = !matchesFilter || !matchesSearch;
 
-      // 更新座標 (若非正在拖曳中)
       if (!state.draggingNodeIds.has(node.id)) {
         cardEl.style.left = `${node.x}px`;
         cardEl.style.top = `${node.y}px`;
@@ -1736,27 +2055,22 @@
       cardEl.classList.toggle('is-selected', isSelected);
       cardEl.style.opacity = isDimmed ? '0.22' : '1';
 
-      // 更新端口顏色
       cardEl.querySelector('[data-role="port-top"]').style.backgroundColor = meta.portColor;
       cardEl.querySelector('[data-role="port-bottom"]').style.backgroundColor = meta.portColor;
 
-      // 更新浮動狀態膠囊
       const badgeEl = cardEl.querySelector('[data-role="floating-badge"]');
       badgeEl.textContent = meta.floatingBadge;
       badgeEl.className = `absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide ${meta.floatingBadgeClass}`;
 
-      // 更新頭部圖示與分類名稱
       cardEl.querySelector('[data-role="icon-1"]').textContent = meta.iconPrimary;
       cardEl.querySelector('[data-role="icon-2"]').textContent = meta.iconSecondary;
       cardEl.querySelector('[data-role="cat-label"]').textContent = meta.categoryName;
 
-      // 更新右上角 ✓ 按鈕樣式 (參考圖實心黑圓圈白勾勾)
       const checkBtn = cardEl.querySelector('[data-role="btn-check"]');
       checkBtn.className = node.answered
         ? 'w-6 h-6 rounded-full bg-[#24ef95] text-zinc-950 text-[11px] font-black flex items-center justify-center transition shadow-sm'
         : 'w-6 h-6 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white text-[11px] font-bold flex items-center justify-center transition shadow-sm';
 
-      // 僅在輸入框未處於聚焦狀態時同步文字，避免打字時游標跳動
       const titleInput = cardEl.querySelector('[data-role="input-title"]');
       if (document.activeElement !== titleInput && titleInput.value !== (node.title || '')) {
         titleInput.value = node.title || '';
@@ -1775,13 +2089,11 @@
         refEl.classList.add('hidden');
       }
 
-      // 更新 AI 按鈕狀態
       const aiMainBtn = cardEl.querySelector('[data-role="btn-ai-main"]');
       const aiLabel = cardEl.querySelector('[data-role="btn-ai-label"]');
       aiMainBtn.disabled = isLoadingAI;
       aiLabel.textContent = isLoadingAI ? '查考中...' : 'AI 找經文';
 
-      // 更新 XMind 展開 / 收合膠囊
       const collapseBtn = cardEl.querySelector('[data-role="btn-collapse"]');
       if (childCount > 0) {
         collapseBtn.classList.remove('hidden');
@@ -1797,7 +2109,6 @@
       }
     }
 
-    // 繪製參考圖同款虛線工作流連線
     function renderConnections() {
       const SVG_OFFSET = 12000;
       const fragments = [];
@@ -1846,7 +2157,7 @@
     };
 
     // ==========================================
-    // 8. 無限畫布平移、縮放與卡片順滑拖曳 (零閃爍)
+    // 9. 無限畫布平移、縮放與母子同步順滑拖曳
     // ==========================================
     function applyViewportTransform() {
       canvasWorld.style.transform = `translate3d(${state.panX}px, ${state.panY}px, 0) scale(${state.scale})`;
@@ -1858,7 +2169,7 @@
     function setupCardDrag(cardEl, nodeId) {
       let isDragging = false;
       let startX = 0, startY = 0;
-      let dragStartPositions = new Map(); // id -> { x, y } 包含母集與所有子集
+      let dragStartPositions = new Map();
       let moved = false;
       let rafPending = false;
 
@@ -1874,10 +2185,10 @@
         startX = e.clientX;
         startY = e.clientY;
 
-        // 收集母集與所有階層子集（包含目前收合的子分支，確保展開時位置正確）
         dragStartPositions.clear();
         state.draggingNodeIds.clear();
 
+        // 收集母集與所有階層子集（包含目前收合的子分支）
         const descendantIds = getDescendantIds(nodeId);
         const allMovingIds = [nodeId, ...descendantIds];
 
@@ -1893,7 +2204,6 @@
           }
         }
 
-        // 僅切換選取邊框樣式，絕不重繪整個畫布
         if (state.selectedNodeId !== nodeId) {
           const prevEl = state.nodeElements.get(state.selectedNodeId);
           if (prevEl) prevEl.classList.remove('is-selected');
@@ -1963,7 +2273,6 @@
       cardEl.addEventListener('pointercancel', endDrag);
     }
 
-    // 畫布平移
     let isPanning = false;
     let panStartX = 0, panStartY = 0;
 
@@ -1995,7 +2304,6 @@
       }
     });
 
-    // 滾輪縮放
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -2010,7 +2318,6 @@
       applyViewportTransform();
     }, { passive: false });
 
-    // 雙擊畫布任意位置建立新節點
     let pendingWorldPos = null;
     viewport.addEventListener('dblclick', (e) => {
       if (e.target.closest('.flow-node')) return;
@@ -2021,7 +2328,6 @@
       window.openCreateModal('anxiety');
     });
 
-    // 支援從右側側邊欄直接拖拉彩色模板卡片到畫布上 (對標參考圖拖曳綠色卡片效果)
     window.handleTemplateDragStart = function (e, type) {
       e.dataTransfer.setData('text/plain', type);
     };
@@ -2085,7 +2391,7 @@
     };
 
     // ==========================================
-    // 9. 彈窗、篩選與手機側邊欄控制
+    // 10. 彈窗、篩選與手機側邊欄控制
     // ==========================================
     let currentModalType = 'anxiety';
 
