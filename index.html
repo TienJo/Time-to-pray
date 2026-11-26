@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>禱告節點流 — 暗黑心智畫布與 AI 聖經查考</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Google Identity Services (Google Client ID 登入) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    :root {
+      --bg-canvas: #141417;
+      --bg-panel: rgba(33, 33, 38, 0.94);
+      --bg-topbar: rgba(26, 26, 30, 0.95);
+      --dot-color: rgba(255, 255, 255, 0.13);
+      --accent-mint: #24ef95;
+      --accent-purple: #a58cf5;
+      --accent-lime: #e4f33b;
+      --accent-danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      color: #f4f4f5;
+      user-select: none;
+      touch-action: none;
+    }
+
+    /* 參考圖同款：深邃炭黑點陣無限畫布 */
+    #viewport {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background-color: var(--bg-canvas);
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.45) 100%),
+        radial-gradient(var(--dot-color) 1.25px, transparent 1.25px);
+      background-size: 100% 100%, 24px 24px;
+    }
+
+    #viewport.is-panning {
+      cursor: grabbing;
+    }
+
+    #canvas-world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    /* SVG 虛線節點連線層 */
+    #connections-layer {
+      position: absolute;
+      top: -12000px;
+      left: -12000px;
+      width: 24000px;
+      height: 24000px;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .flow-connector {
+      fill: none;
+      stroke-linecap: round;
+      stroke-dasharray: 4 5;
+      stroke-width: 2.2;
+    }
+
+    /* 純白圓角節點卡片 (無閃爍增量渲染) */
+    .flow-node {
+      position: absolute;
+      width: 300px;
+      background: #ffffff;
+      color: #18181b;
+      border-radius: 22px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      cursor: grab;
+      touch-action: none;
+      transition: box-shadow 0.18s ease, opacity 0.2s ease;
+      will-change: left, top;
+    }
+
+    .flow-node:hover {
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.68), 0 0 0 1.5px rgba(255, 255, 255, 0.25);
+    }
+
+    .flow-node.is-dragging {
+      cursor: grabbing;
+      z-index: 60 !important;
+      box-shadow: 0 26px 56px rgba(0, 0, 0, 0.8), 0 0 0 2.5px #24ef95;
+      transition: none !important;
+    }
+
+    .flow-node.is-subtree-dragging {
+      z-index: 55 !important;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.7), 0 0 0 1.5px rgba(36, 239, 149, 0.45);
+      transition: none !important;
+    }
+
+    .flow-node.is-selected {
+      z-index: 45;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 0 2.5px #a58cf5;
+    }
+
+    /* 僅在第一次建立時播放一次微幅出現動畫，絕不重複觸發 */
+    @keyframes nodeAppear {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .node-just-created {
+      animation: nodeAppear 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* 上下連線端口小圓點 */
+    .node-port {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 9999px;
+      border: 2px solid #141417;
+      z-index: 15;
+    }
+    .node-port-top { top: -5px; }
+    .node-port-bottom { bottom: -5px; }
+
+    /* XMind 分支展開/收合膠囊 */
+    .xmind-collapse-pill {
+      position: absolute;
+      right: -15px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 26px;
+      min-width: 32px;
+      padding: 0 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+      z-index: 25;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .xmind-collapse-pill:hover {
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    /* 懸浮深色玻璃側邊欄 */
+    .floating-sidebar {
+      background: var(--bg-panel);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 26px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    /* 右側彩色模板卡片質感 */
+    .template-card {
+      border-radius: 22px;
+      padding: 16px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      cursor: grab;
+    }
+    .template-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+    }
+    .template-card:active {
+      cursor: grabbing;
+    }
+
+    /* 隱藏捲軸但可滾動 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    textarea::-webkit-scrollbar {
+      width: 4px;
+    }
+    textarea::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================
+       頂部導覽列 (對標參考圖頂部深色列)
+       ========================================================= -->
+  <header class="fixed top-0 left-0 right-0 h-16 z-50 bg-[#1a1a1e]/95 backdrop-blur-md border-b border-white/[0.07] px-4 lg:px-6 flex items-center justify-between gap-3">
+    <!-- 左側 Brand Logo -->
+    <div class="flex items-center gap-3">
+      <!-- 手機版左側面板開關 -->
+      <button onclick="toggleMobileDrawer('left')" class="lg:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm" title="開啟工具箱">
+        ☰
+      </button>
+
+      <div class="w-9 h-9 rounded-xl bg-white text-zinc-950 flex items-center justify-center font-black text-lg shadow">
+        ✝
+      </div>
+      <div>
+        <div class="font-bold text-sm sm:text-base tracking-tight text-white leading-none">Pryme 禱告牆</div>
+        <div class="text-[10px] text-zinc-400 mt-0.5 hidden sm:block">Infinite Prayer & Scripture Mindmap</div>
+      </div>
+    </div>
+
+    <!-- 中央分頁篩選導覽 (參考圖中間橫排圖示+文字) -->
+    <nav class="hidden md:flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-full border border-white/[0.06]">
+      <button onclick="setFilter('all')" id="nav-filter-all" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-zinc-950 shadow transition">
+        <span>✦</span><span>全部節點</span>
+      </button>
+      <button onclick="setFilter('anxiety')" id="nav-filter-anxiety" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
+        <span>🔥</span><span>焦慮重擔</span>
+      </button>
+      <button onclick="setFilter('gratitude')" id="nav-filter-gratitude" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
+        <span>🌸</span><span>感恩獻上</span>
+      </button>
+      <button onclick="setFilter('scripture')" id="nav-filter-scripture" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
+        <span>📜</span><span>聖經應許</span>
+      </button>
+      <button onclick="setFilter('reflection')" id="nav-filter-reflection" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
+        <span>✍️</span><span>靈修心得</span>
+      </button>
+    </nav>
+
+    <!-- 右側雲端同步狀態與 Google Client ID 登入 -->
+    <div class="flex items-center gap-2.5">
+      <!-- 雲端同步指示膠囊 -->
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs text-zinc-300">
+        <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="sync-text">連線雲端中</span>
+      </div>
+
+      <!-- Google 帳號登入區塊 -->
+      <div id="auth-container" class="flex items-center">
+        <button onclick="triggerGoogleSignIn()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-semibold text-xs shadow-md transition">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
+            <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
+          </svg>
+          <span>Google 雲端登入</span>
+        </button>
+      </div>
+
+      <!-- 手機版右側新增面板開關 -->
+      <button onclick="toggleMobileDrawer('right')" class="lg:hidden w-9 h-9 rounded-full bg-[#24ef95] text-zinc-950 font-bold flex items-center justify-center text-base shadow" title="新增禱告卡片">
+        ＋
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       中央無限點陣畫布
+       ========================================================= -->
+  <main id="viewport">
+    <div id="canvas-world">
+      <!-- 虛線節點連線圖層 -->
+      <svg id="connections-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+      <!-- 節點卡片容器 (增量 DOM 更新，絕不閃爍) -->
+      <div id="nodes-container"></div>
+    </div>
+  </main>
+
+  <!-- =========================================================
+       左側懸浮深色工具箱面板 (對標參考圖左側 Integration 面板)
+       ========================================================= -->
+  <aside id="left-sidebar" class="floating-sidebar fixed top-20 left-4 bottom-4 w-[248px] z-40 p-5 flex flex-col transition-transform duration-300 -translate-x-[120%] lg:translate-x-0">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-white tracking-tight w-full text-center">禱告工具箱</h2>
+      <button onclick="toggleMobileDrawer('left')" class="lg:hidden text-zinc-400 hover:text-white text-sm">✕</button>
+    </div>
+
+    <!-- 白色膠囊搜尋框 + 圓形深色放大鏡按鈕 -->
+    <div class="relative flex items-center bg-white rounded-full p-1 pl-4 shadow-md mb-6">
+      <input
+        type="text"
+        id="sidebar-search-input"
+        oninput="handleSearch(this.value)"
+        placeholder="搜尋禱告或經文..."
+        class="w-full bg-transparent text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none pr-2"
+      />
+      <button onclick="document.getElementById('sidebar-search-input').focus()" class="w-8 h-8 rounded-full bg-[#1c1c20] text-white flex items-center justify-center shrink-0 hover:bg-zinc-800 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 2 欄圓形白色圖示網格 (參考圖核心視覺元素) -->
+    <div class="grid grid-cols-2 gap-y-5 gap-x-3 overflow-y-auto no-scrollbar pb-4">
+      <!-- 1. 新增焦慮 -->
+      <button onclick="openCreateModal('anxiety')" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          🔥
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">貼上焦慮</span>
+      </button>
+
+      <!-- 2. 新增感謝 -->
+      <button onclick="openCreateModal('gratitude')" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          🌸
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">貼上感謝</span>
+      </button>
+
+      <!-- 3. 靈修心得 -->
+      <button onclick="openCreateModal('reflection')" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          ✍️
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">紀錄心得</span>
+      </button>
+
+      <!-- 4. AI 尋找經文 -->
+      <button onclick="triggerAIOnSelected()" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          ✨
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">AI 找經文</span>
+      </button>
+
+      <!-- 5. XMind 自動排版 -->
+      <button onclick="autoLayoutTree()" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          🪄
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">自動排版</span>
+      </button>
+
+      <!-- 6. 總覽置中 -->
+      <button onclick="fitAllNodes()" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
+          🎯
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">總覽置中</span>
+      </button>
+
+      <!-- 7. 展開全部分支 -->
+      <button onclick="toggleAllBranches(false)" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-xl font-bold text-zinc-900 group-hover:scale-105 group-active:scale-95 transition">
+          ⊞
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">展開分支</span>
+      </button>
+
+      <!-- 8. 收合全部分支 -->
+      <button onclick="toggleAllBranches(true)" class="flex flex-col items-center gap-2 group">
+        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-xl font-bold text-zinc-900 group-hover:scale-105 group-active:scale-95 transition">
+          ⊟
+        </div>
+        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">收合分支</span>
+      </button>
+    </div>
+
+    <!-- 底部提示 -->
+    <div class="mt-auto pt-3 border-t border-white/[0.07] text-[11px] text-zinc-400 leading-relaxed text-center">
+      雙擊畫布任意處可建立新節點<br/>拖曳右側彩色卡片可直接貼上
+    </div>
+  </aside>
+
+  <!-- =========================================================
+       左下角懸浮垂直控制膠囊 (對標參考圖 +, -, ×, 🗑 垂直膠囊)
+       ========================================================= -->
+  <div class="fixed bottom-5 left-4 lg:left-[276px] z-40 bg-[#242429]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex flex-col items-center gap-1.5 shadow-2xl">
+    <button onclick="zoomCanvas(0.15)" title="放大畫布" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-200 font-bold text-base flex items-center justify-center transition">
+      +
+    </button>
+    <button onclick="zoomCanvas(-0.15)" title="縮小畫布" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-200 font-bold text-base flex items-center justify-center transition">
+      −
+    </button>
+    <button onclick="resetView()" title="重設視角 (100%)" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white text-xs flex items-center justify-center transition">
+      ✕
+    </button>
+    <button onclick="deleteSelectedNode()" title="刪除選取的卡片" class="w-8 h-8 rounded-full hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 text-xs flex items-center justify-center transition">
+      🗑
+    </button>
+  </div>
+
+  <!-- =========================================================
+       右側懸浮深色快速卡片面板 (對標參考圖右側 Add new integration 彩色卡片庫)
+       ========================================================= -->
+  <aside id="right-sidebar" class="floating-sidebar fixed top-20 right-4 bottom-4 w-[275px] z-40 p-5 flex flex-col transition-transform duration-300 translate-x-[120%] lg:translate-x-0">
+    <div class="flex items-center justify-between mb-4">
+      <button onclick="toggleMobileDrawer('right')" class="lg:hidden text-zinc-400 hover:text-white text-sm">✕</button>
+      <h2 class="text-lg font-bold text-white tracking-tight w-full text-center">新增禱告卡片</h2>
+    </div>
+
+    <!-- 白色膠囊篩選列 + 圓形深色滑桿按鈕 -->
+    <div class="relative flex items-center justify-between bg-white rounded-full p-1 pl-4 shadow-md mb-5">
+      <span id="zoom-indicator" class="text-xs font-medium text-zinc-500">畫布縮放：100%</span>
+      <button onclick="fitAllNodes()" title="自動適應視窗" class="w-8 h-8 rounded-full bg-[#1c1c20] text-white flex items-center justify-center shrink-0 hover:bg-zinc-800 transition text-xs">
+        ⇄
+      </button>
+    </div>
+
+    <!-- 繽紛彩色模板卡片列表 (Lavender Purple, Neon Lime, Mint Green, Pure White) -->
+    <div class="space-y-3.5 overflow-y-auto no-scrollbar pb-4">
+      <!-- 1. 薰衣草紫卡片 (#a58cf5) - 焦慮重擔 -->
+      <div
+        draggable="true"
+        ondragstart="handleTemplateDragStart(event, 'anxiety')"
+        class="template-card bg-[#a58cf5] text-zinc-950 shadow-lg"
+      >
+        <div class="flex items-center gap-1.5 mb-2.5">
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🔥</span>
+          <span class="text-xs font-bold opacity-60">›</span>
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🙏</span>
+          <span class="text-xs font-bold ml-1">焦慮與掛慮</span>
+        </div>
+        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
+          把心裡的擔憂與重擔貼上去，讓 <strong class="font-bold">AI 尋找應許經文</strong> 陪伴你。
+        </p>
+        <button onclick="openCreateModal('anxiety')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
+          貼上焦慮卡片
+        </button>
+      </div>
+
+      <!-- 2. 螢光檸檬黃卡片 (#e4f33b) - 感恩獻上 -->
+      <div
+        draggable="true"
+        ondragstart="handleTemplateDragStart(event, 'gratitude')"
+        class="template-card bg-[#e4f33b] text-zinc-950 shadow-lg"
+      >
+        <div class="flex items-center gap-1.5 mb-2.5">
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🌸</span>
+          <span class="text-xs font-bold opacity-60">›</span>
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">✨</span>
+          <span class="text-xs font-bold ml-1">感恩與讚美</span>
+        </div>
+        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
+          數算每日的恩典與回應，將 <strong class="font-bold">感謝的祭</strong> 獻在畫布上。
+        </p>
+        <button onclick="openCreateModal('gratitude')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
+          貼上感謝卡片
+        </button>
+      </div>
+
+      <!-- 3. 薄荷綠卡片 (#24ef95) - 靈修心得分支 -->
+      <div
+        draggable="true"
+        ondragstart="handleTemplateDragStart(event, 'reflection')"
+        class="template-card bg-[#24ef95] text-zinc-950 shadow-lg"
+      >
+        <div class="flex items-center gap-1.5 mb-2.5">
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">✍️</span>
+          <span class="text-xs font-bold opacity-60">›</span>
+          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">💡</span>
+          <span class="text-xs font-bold ml-1">靈修心得分支</span>
+        </div>
+        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
+          在任何地方延伸新分支，記錄你的 <strong class="font-bold">禱告領受與筆記</strong>。
+        </p>
+        <button onclick="openCreateModal('reflection')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
+          新增心得節點
+        </button>
+      </div>
+
+      <!-- 4. 純白卡片 (#ffffff) - AI 聖經經文助手 -->
+      <div class="template-card bg-white text-zinc-950 shadow-lg">
+        <div class="flex items-center gap-1.5 mb-2.5">
+          <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm">📜</span>
+          <span class="text-xs font-bold opacity-50">›</span>
+          <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm">🤖</span>
+          <span class="text-xs font-bold ml-1">AI 聖經查考</span>
+        </div>
+        <p class="text-xs font-medium leading-relaxed text-zinc-600 mb-3.5">
+          點選畫布上任一張卡片，立即展開 <strong class="text-zinc-900">和合本經文分支</strong>。
+        </p>
+        <button onclick="triggerAIOnSelected()" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
+          ✨ AI 尋找經文
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =========================================================
+       新增禱告 / 感謝 / 心得彈窗
+       ========================================================= -->
+  <div id="node-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-[#222227] border border-white/10 rounded-[28px] w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-2.5">
+          <span id="modal-type-icon" class="w-9 h-9 rounded-full bg-white text-zinc-950 flex items-center justify-center text-lg shadow">🔥</span>
+          <div>
+            <h3 id="modal-title" class="text-base font-bold text-white">貼上新的焦慮重擔</h3>
+            <p class="text-[11px] text-zinc-400">將會同步保存至您的雲端禱告地圖</p>
+          </div>
+        </div>
+        <button onclick="closeNodeModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
+      </div>
+
+      <!-- 類型切換膠囊 -->
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button type="button" onclick="selectModalType('anxiety')" data-type="anxiety" class="modal-type-btn py-2 px-2 rounded-full text-xs font-bold transition">
+          🔥 焦慮重擔
+        </button>
+        <button type="button" onclick="selectModalType('gratitude')" data-type="gratitude" class="modal-type-btn py-2 px-2 rounded-full text-xs font-bold transition">
+          🌸 感恩獻上
+        </button>
+        <button type="button" onclick="selectModalType('reflection')" data-type="reflection" class="modal-type-btn py-2 px-2 rounded-full text-xs font-bold transition">
+          ✍️ 靈修心得
+        </button>
+      </div>
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1.5">主題摘要</label>
+          <input
+            type="text"
+            id="modal-input-title"
+            placeholder="例如：對工作專案與未來方向感到焦慮..."
+            class="w-full bg-[#16161a] border border-white/10 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#a58cf5]"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1.5">詳細禱告與內心感受</label>
+          <textarea
+            id="modal-input-content"
+            rows="4"
+            placeholder="把你心裡所有的掛慮、感謝或領受寫下來..."
+            class="w-full bg-[#16161a] border border-white/10 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#a58cf5] resize-none"
+          ></textarea>
+        </div>
+
+        <label class="flex items-center gap-3 p-3.5 rounded-2xl bg-[#a58cf5]/15 border border-[#a58cf5]/30 cursor-pointer">
+          <input type="checkbox" id="modal-auto-ai" checked class="w-4 h-4 accent-[#a58cf5] rounded" />
+          <div class="text-xs">
+            <span class="font-bold text-[#c4b5fd]">✨ 貼上後立即請 AI 尋找契合的聖經經文</span>
+            <p class="text-zinc-400 text-[11px] mt-0.5">自動在下方展開應許經文節點分支</p>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 mt-6">
+        <button onclick="closeNodeModal()" class="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-zinc-300 text-xs font-semibold transition">取消</button>
+        <button onclick="submitNodeModal()" class="px-5 py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 text-xs font-bold shadow-lg transition">
+          確認貼上畫布
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       自訂刪除確認彈窗 (絕不使用 confirm())
+       ========================================================= -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-[#222227] border border-white/10 rounded-[26px] w-full max-w-sm p-6 shadow-2xl">
+      <div class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg mb-3">🗑</div>
+      <h3 class="text-base font-bold text-white mb-1.5">移除這張節點卡片？</h3>
+      <p class="text-xs text-zinc-400 mb-5 leading-relaxed">將會一併移除此卡片底下展開的所有分支（經文與心得），此動作無法復原。</p>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-zinc-300 text-xs font-semibold">保留</button>
+        <button id="confirm-delete-btn" class="px-4 py-2 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold">確認移除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 訊息提示容器 -->
+  <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <!-- =========================================================
+       Firebase 雲端儲存 + Google Client ID + 無閃爍增量渲染引擎
+       ========================================================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth,
+      signInAnonymously,
+      signInWithCustomToken,
+      GoogleAuthProvider,
+      signInWithCredential,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      setDoc,
+      updateDoc,
+      deleteDoc,
+      writeBatch,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // ==========================================
+    // 1. 全域狀態與 Firebase 設定
+    // ==========================================
+    const GOOGLE_CLIENT_ID = "865993916714-o0h883itsqd3lvgbatmkgqrqqhbrmuhf.apps.googleusercontent.com";
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'pryme-prayer-mindmap';
+    const firebaseConfig = typeof __firebase_config !== 'undefined'
+      ? JSON.parse(__firebase_config)
+      : { apiKey: "", authDomain: "", projectId: "" };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    let googleProfile = null;
+    let unsubscribeNodes = null;
+
+    const state = {
+      nodes: new Map(),           // nodeId -> node data
+      nodeElements: new Map(),    // nodeId -> DOM Element (避免閃爍的核心快取)
+      panX: window.innerWidth / 2 - 150,
+      panY: 130,
+      scale: 1,
+      selectedNodeId: null,
+      draggingNodeIds: new Set(), // 正在拖曳中的母集與所有子集 ID，避免遠端快照干擾
+      filterType: 'all',
+      searchQuery: '',
+      aiLoadingIds: new Set()
+    };
+
+    const viewport = document.getElementById('viewport');
+    const canvasWorld = document.getElementById('canvas-world');
+    const connectionsLayer = document.getElementById('connections-layer');
+    const nodesContainer = document.getElementById('nodes-container');
+
+    // ==========================================
+    // 2. Toast 提示系統
+    // ==========================================
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const styles = {
+        info: 'bg-[#25252b]/95 border-white/15 text-white',
+        success: 'bg-[#132a20]/95 border-[#24ef95]/40 text-[#24ef95]',
+        warning: 'bg-[#2b2514]/95 border-[#e4f33b]/40 text-[#e4f33b]',
+        error: 'bg-[#2c1519]/95 border-rose-500/40 text-rose-300'
+      };
+      toast.className = `px-4 py-2.5 rounded-full border backdrop-blur-md shadow-2xl text-xs font-semibold flex items-center gap-2 transition-all duration-300 ${styles[type] || styles.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 280);
+      }, 3200);
+    }
+
+    function setSyncStatus(status, text) {
+      const dot = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-text');
+      if (!dot || !label) return;
+      label.textContent = text;
+      dot.className = 'w-2 h-2 rounded-full ';
+      if (status === 'syncing') dot.className += 'bg-[#e4f33b] animate-ping';
+      else if (status === 'synced') dot.className += 'bg-[#24ef95]';
+      else dot.className += 'bg-rose-500';
+    }
+
+    // ==========================================
+    // 3. Google Client ID 登入與 Firebase Auth
+    // ==========================================
+    async function initAuthAndCloud() {
+      try {
+        setSyncStatus('syncing', '連線雲端中...');
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+        setSyncStatus('error', '離線模式');
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (user) {
+        updateAuthUI();
+        subscribeToPrayerNodes(user.uid);
+      }
+    });
+
+    window.addEventListener('load', () => {
+      if (window.google && window.google.accounts) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false
+          });
+        } catch (e) {
+          console.warn("GIS init notice:", e);
+        }
+      }
+    });
+
+    async function handleGoogleCredentialResponse(response) {
+      try {
+        setSyncStatus('syncing', '正在驗證 Google 帳號...');
+        const base64Url = response.credential.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join('')));
+
+        googleProfile = {
+          name: payload.name || payload.email,
+          email: payload.email,
+          picture: payload.picture
+        };
+
+        try {
+          const credential = GoogleAuthProvider.credential(response.credential);
+          await signInWithCredential(auth, credential);
+          showToast(`✨ 歡迎回來，${googleProfile.name}！已連接雲端存檔`, 'success');
+        } catch (fbErr) {
+          showToast(`✅ 已驗證 Google 帳號：${googleProfile.name}`, 'success');
+        }
+        updateAuthUI();
+      } catch (err) {
+        showToast("Google 登入驗證失敗，請再試一次", "error");
+      }
+    }
+
+    window.triggerGoogleSignIn = function () {
+      if (window.google && window.google.accounts) {
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            fallbackFirebaseGooglePopup();
+          }
+        });
+      } else {
+        fallbackFirebaseGooglePopup();
+      }
+    };
+
+    async function fallbackFirebaseGooglePopup() {
+      try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(auth, provider);
+        if (result.user) {
+          googleProfile = {
+            name: result.user.displayName || 'Google 使用者',
+            email: result.user.email,
+            picture: result.user.photoURL
+          };
+          updateAuthUI();
+          showToast("✨ 已透過 Google 登入並同步雲端！", "success");
+        }
+      } catch (err) {
+        showToast("已啟用雲端自動存檔（若需跨網域 Google 登入請確認 OAuth 網域設定）", "warning");
+      }
+    }
+
+    window.handleSignOut = async function () {
+      googleProfile = null;
+      await signOut(auth);
+      await signInAnonymously(auth);
+      updateAuthUI();
+      showToast("已登出 Google 帳號", "info");
+    };
+
+    function updateAuthUI() {
+      const container = document.getElementById('auth-container');
+      const isGoogleUser = googleProfile || (currentUser && !currentUser.isAnonymous && currentUser.providerData?.length > 0);
+      const displayName = googleProfile?.name || currentUser?.displayName || '已登入';
+      const photoUrl = googleProfile?.picture || currentUser?.photoURL;
+
+      if (isGoogleUser) {
+        container.innerHTML = `
+          <div class="flex items-center gap-2 bg-white/[0.07] border border-white/10 pl-1.5 pr-3 py-1 rounded-full">
+            ${photoUrl
+              ? `<img src="${photoUrl}" alt="avatar" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'">`
+              : `<div class="w-6 h-6 rounded-full bg-[#24ef95] text-zinc-950 font-bold text-xs flex items-center justify-center">${escapeHtml(displayName[0])}</div>`
+            }
+            <div class="text-left leading-tight hidden sm:block">
+              <div class="text-xs font-semibold text-white max-w-[96px] truncate">${escapeHtml(displayName)}</div>
+              <div class="text-[9px] text-zinc-400">雲端同步中</div>
+            </div>
+            <button onclick="handleSignOut()" class="text-[11px] text-zinc-400 hover:text-rose-400 ml-1">登出</button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <button onclick="triggerGoogleSignIn()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-semibold text-xs shadow-md transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
+              <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
+            </svg>
+            <span>Google 雲端登入</span>
+          </button>
+        `;
+      }
+    }
+
+    // ==========================================
+    // 4. Firestore 即時同步 (嚴格遵守路徑與查詢規範)
+    // ==========================================
+    function getNodesCollectionRef(uid) {
+      return collection(db, 'artifacts', appId, 'users', uid, 'prayer_nodes');
+    }
+
+    function subscribeToPrayerNodes(uid) {
+      if (!uid) return;
+      if (unsubscribeNodes) unsubscribeNodes();
+
+      setSyncStatus('syncing', '同步畫布中...');
+      const colRef = getNodesCollectionRef(uid);
+
+      unsubscribeNodes = onSnapshot(colRef, async (snapshot) => {
+        if (snapshot.empty && state.nodes.size === 0) {
+          await seedInitialWorkflow();
+          return;
+        }
+
+        const incomingIds = new Set();
+        snapshot.forEach((docSnap) => {
+          const id = docSnap.id;
+          incomingIds.add(id);
+          // 若使用者正在拖曳此母集或子集卡片，跳過座標覆蓋以維持 100% 順滑
+          if (state.draggingNodeIds.has(id)) return;
+          const data = docSnap.data();
+          state.nodes.set(id, { id, ...data });
+        });
+
+        // 移除雲端已刪除的節點
+        for (const existingId of [...state.nodes.keys()]) {
+          if (!incomingIds.has(existingId) && !state.draggingNodeIds.has(existingId)) {
+            state.nodes.delete(existingId);
+          }
+        }
+
+        setSyncStatus('synced', '已同步至雲端');
+        syncBoardDOM();
+      }, (error) => {
+        console.error("Firestore snapshot error:", error);
+        setSyncStatus('error', '同步異常');
+      });
+    }
+
+    async function saveNodeToCloud(node) {
+      if (!currentUser) return;
+      setSyncStatus('syncing', '儲存中...');
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', node.id);
+        await setDoc(docRef, node, { merge: true });
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        console.error("Save node error:", err);
+        setSyncStatus('error', '儲存失敗');
+      }
+    }
+
+    async function saveMultipleNodesToCloud(nodesList) {
+      if (!currentUser || !nodesList || nodesList.length === 0) return;
+      setSyncStatus('syncing', '儲存中...');
+      try {
+        const batch = writeBatch(db);
+        for (const node of nodesList) {
+          const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', node.id);
+          batch.set(docRef, { x: node.x, y: node.y, updatedAt: Date.now() }, { merge: true });
+        }
+        await batch.commit();
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        console.error("Batch save nodes error:", err);
+        setSyncStatus('error', '儲存失敗');
+      }
+    }
+
+    window.updateNodeFields = async function (nodeId, fields) {
+      const existing = state.nodes.get(nodeId);
+      if (!existing) return;
+      Object.assign(existing, fields, { updatedAt: Date.now() });
+      syncBoardDOM();
+
+      if (!currentUser) return;
+      setSyncStatus('syncing', '儲存中...');
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', nodeId);
+        await updateDoc(docRef, { ...fields, updatedAt: Date.now() });
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        console.error("Update error:", err);
+      }
+    };
+
+    async function deleteNodeCascade(nodeId) {
+      const toDelete = new Set([nodeId]);
+      let added = true;
+      while (added) {
+        added = false;
+        for (const [id, n] of state.nodes.entries()) {
+          if (n.parentId && toDelete.has(n.parentId) && !toDelete.has(id)) {
+            toDelete.add(id);
+            added = true;
+          }
+        }
+      }
+
+      if (toDelete.has(state.selectedNodeId)) {
+        state.selectedNodeId = null;
+      }
+
+      for (const id of toDelete) {
+        state.nodes.delete(id);
+      }
+      syncBoardDOM();
+      showToast("已移除節點與其子分支", "info");
+
+      if (!currentUser) return;
+      setSyncStatus('syncing', '移除中...');
+      try {
+        for (const id of toDelete) {
+          const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', id);
+          await deleteDoc(docRef);
+        }
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        console.error("Delete cascade error:", err);
+      }
+    }
+
+    // 初始工作流範例節點 (垂直樹狀 flow 佈局，還原參考圖美感)
+    async function seedInitialWorkflow() {
+      const now = Date.now();
+      const rootId = 'node-root-1';
+      const scriptureId = 'node-scripture-1';
+      const gratitudeId = 'node-gratitude-1';
+      const reflectionId = 'node-reflection-1';
+
+      const initialNodes = [
+        {
+          id: rootId,
+          parentId: null,
+          type: 'anxiety',
+          title: '對未來工作與生活節奏的焦慮',
+          content: '最近待辦事項很多，心裡很容易緊繃不安，求主賜給我平靜與清晰的智慧。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: scriptureId,
+          parentId: rootId,
+          type: 'scripture',
+          title: '腓立比書 4:6-7',
+          content: '「應當一無掛慮，只要凡事藉著禱告、祈求，和感謝，將你們所要的告訴神。神所賜、出人意外的平安必在基督耶穌裡保守你們的心懷意念。」',
+          reference: '和合本 · AI 聖經應許',
+          x: -185,
+          y: 265,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 1,
+          updatedAt: now + 1
+        },
+        {
+          id: gratitudeId,
+          parentId: rootId,
+          type: 'gratitude',
+          title: '感謝夥伴與家人的支持',
+          content: '今天收到朋友的暖心鼓勵，提醒我不是一個人面對所有挑戰。',
+          reference: '',
+          x: 185,
+          y: 265,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 2,
+          updatedAt: now + 2
+        },
+        {
+          id: reflectionId,
+          parentId: scriptureId,
+          type: 'reflection',
+          title: '今日靈修心得',
+          content: '當我願意先停下來禱告交託，內心的重擔就不再只是自己扛著了。',
+          reference: '',
+          x: -185,
+          y: 545,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 3,
+          updatedAt: now + 3
+        }
+      ];
+
+      for (const n of initialNodes) {
+        state.nodes.set(n.id, n);
+        await saveNodeToCloud(n);
+      }
+      syncBoardDOM();
+    }
+
+    // ==========================================
+    // 5. Gemini AI 聖經經文查考引擎
+    // ==========================================
+    window.findScriptureWithAI = async function (nodeId) {
+      const node = state.nodes.get(nodeId);
+      if (!node || state.aiLoadingIds.has(nodeId)) return;
+
+      state.aiLoadingIds.add(nodeId);
+      if (node.collapsed) {
+        await window.updateNodeFields(nodeId, { collapsed: false });
+      } else {
+        syncBoardDOM();
+      }
+
+      showToast("✨ AI 正在查考聖經，為您尋找契合的經文...", "info");
+
+      const typeLabel = {
+        anxiety: '焦慮與重擔',
+        gratitude: '感恩與讚美',
+        reflection: '靈修心得',
+        scripture: '聖經經文延伸'
+      }[node.type] || '禱告事項';
+
+      const systemPrompt = `你是一位充滿愛心、溫柔且熟讀聖經（繁體中文和合本）的屬靈陪伴者。
+使用者在「禱告心智畫布」上建立了一張【${typeLabel}】節點卡片。
+請根據對方的處境與內容，從聖經中挑選出 2 段最貼切、能帶來安慰、力量或共鳴的經文（使用繁體中文和合本），並附上簡短溫暖的靈修亮光。`;
+
+      const userQuery = `節點類型：${typeLabel}\n主題：${node.title || '無標題'}\n內容：${node.content || '請為我的心禱告'}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userQuery }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              verses: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    reference: { type: "STRING", description: "經卷章節，例如：詩篇 23:1-4" },
+                    verseText: { type: "STRING", description: "繁體中文和合本經文內容" },
+                    encouragement: { type: "STRING", description: "簡短溫暖的鼓勵與禱告方向（約30-45字）" }
+                  },
+                  required: ["reference", "verseText", "encouragement"]
+                }
+              }
+            },
+            required: ["verses"]
+          }
+        }
+      };
+
+      const apiKey = "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      try {
+        const result = await fetchWithExponentialBackoff(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!jsonText) throw new Error("Empty AI response");
+
+        const parsed = JSON.parse(jsonText);
+        const verses = parsed.verses || [];
+        const existingChildren = getChildrenOf(nodeId);
+
+        for (let i = 0; i < verses.length; i++) {
+          const v = verses[i];
+          const newId = 'node-' + crypto.randomUUID().slice(0, 8);
+          const colOffset = (existingChildren.length + i - (verses.length - 1) / 2) * 330;
+          const newNode = {
+            id: newId,
+            parentId: nodeId,
+            type: 'scripture',
+            title: v.reference,
+            content: `「${v.verseText}」\n💡 ${v.encouragement}`,
+            reference: '和合本 · AI 聖經應許',
+            x: Math.round(node.x + colOffset),
+            y: Math.round(node.y + 275),
+            collapsed: false,
+            answered: false,
+            createdAt: Date.now() + i,
+            updatedAt: Date.now() + i
+          };
+          state.nodes.set(newId, newNode);
+          syncBoardDOM(new Set([newId]));
+          await saveNodeToCloud(newNode);
+        }
+
+        showToast(`📜 已為您展開 ${verses.length} 則聖經應許分支！`, "success");
+      } catch (err) {
+        console.error("AI scripture search failed:", err);
+        showToast("AI 查考經文暫時忙碌，請稍後再試", "error");
+      } finally {
+        state.aiLoadingIds.delete(nodeId);
+        syncBoardDOM();
+      }
+    };
+
+    window.triggerAIOnSelected = function () {
+      if (state.selectedNodeId && state.nodes.has(state.selectedNodeId)) {
+        window.findScriptureWithAI(state.selectedNodeId);
+        return;
+      }
+      // 若尚未選取卡片，自動選取第一張可見的焦慮或禱告卡片
+      const firstNode = [...state.nodes.values()].find(n => !isNodeHiddenByCollapse(n) && n.type !== 'scripture')
+        || [...state.nodes.values()].find(n => !isNodeHiddenByCollapse(n));
+      if (firstNode) {
+        state.selectedNodeId = firstNode.id;
+        syncBoardDOM();
+        window.findScriptureWithAI(firstNode.id);
+      } else {
+        showToast("請先在畫布上貼上一張禱告或焦慮卡片", "warning");
+      }
+    };
+
+    async function fetchWithExponentialBackoff(url, options, maxRetries = 3) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return await response.json();
+        } catch (err) {
+          if (attempt === maxRetries) throw err;
+          await new Promise(res => setTimeout(res, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    // ==========================================
+    // 6. XMind 樹狀分支展開 / 收合與排版邏輯
+    // ==========================================
+    function getChildrenOf(parentId) {
+      const list = [];
+      for (const node of state.nodes.values()) {
+        if (node.parentId === parentId) list.push(node);
+      }
+      return list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    }
+
+    function countDescendants(nodeId) {
+      let count = 0;
+      const children = getChildrenOf(nodeId);
+      for (const child of children) {
+        count += 1 + countDescendants(child.id);
+      }
+      return count;
+    }
+
+    function getDescendantIds(nodeId) {
+      const ids = [];
+      const children = getChildrenOf(nodeId);
+      for (const child of children) {
+        ids.push(child.id);
+        ids.push(...getDescendantIds(child.id));
+      }
+      return ids;
+    }
+
+    function isNodeHiddenByCollapse(node) {
+      let currentParentId = node.parentId;
+      const visited = new Set();
+      while (currentParentId && !visited.has(currentParentId)) {
+        visited.add(currentParentId);
+        const parent = state.nodes.get(currentParentId);
+        if (!parent) break;
+        if (parent.collapsed) return true;
+        currentParentId = parent.parentId;
+      }
+      return false;
+    }
+
+    window.toggleCollapseBranch = async function (e, nodeId) {
+      e.stopPropagation();
+      const node = state.nodes.get(nodeId);
+      if (!node) return;
+      await window.updateNodeFields(nodeId, { collapsed: !node.collapsed });
+    };
+
+    window.toggleAllBranches = async function (shouldCollapse) {
+      for (const node of state.nodes.values()) {
+        if (countDescendants(node.id) > 0) {
+          node.collapsed = shouldCollapse;
+          saveNodeToCloud(node);
+        }
+      }
+      syncBoardDOM();
+      showToast(shouldCollapse ? "已收合所有子分支" : "已展開所有子分支", "info");
+    };
+
+    // 在任意節點下方/旁邊新增分支
+    window.addChildBranch = async function (e, parentId, type = 'reflection') {
+      e.stopPropagation();
+      const parent = state.nodes.get(parentId);
+      if (!parent) return;
+
+      if (parent.collapsed) {
+        parent.collapsed = false;
+        await saveNodeToCloud(parent);
+      }
+
+      const siblings = getChildrenOf(parentId);
+      const newId = 'node-' + crypto.randomUUID().slice(0, 8);
+      const defaultTitles = {
+        reflection: '禱告心得與領受',
+        gratitude: '延伸的感恩回應',
+        anxiety: '交託的新擔憂'
+      };
+
+      const offsetX = (siblings.length - 0.5) * 330;
+      const newNode = {
+        id: newId,
+        parentId: parentId,
+        type: type,
+        title: defaultTitles[type] || '新分支節點',
+        content: '',
+        reference: '',
+        x: Math.round(parent.x + offsetX),
+        y: Math.round(parent.y + 275),
+        collapsed: false,
+        answered: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      state.nodes.set(newId, newNode);
+      state.selectedNodeId = newId;
+      syncBoardDOM(new Set([newId]));
+      await saveNodeToCloud(newNode);
+
+      setTimeout(() => {
+        const el = state.nodeElements.get(newId);
+        const textarea = el?.querySelector('textarea');
+        if (textarea) textarea.focus();
+      }, 40);
+    };
+
+    // 自動垂直樹狀工作流排版 (對標參考圖層級結構)
+    window.autoLayoutTree = async function () {
+      const roots = [];
+      for (const node of state.nodes.values()) {
+        if (!node.parentId || !state.nodes.has(node.parentId)) {
+          roots.push(node);
+        }
+      }
+      roots.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      const X_GAP = 335;
+      const Y_GAP = 275;
+      let cursorX = 0;
+
+      function layoutSubtree(node, depth, startX) {
+        const children = node.collapsed ? [] : getChildrenOf(node.id);
+        if (children.length === 0) {
+          node.x = Math.round(startX);
+          node.y = Math.round(depth * Y_GAP);
+          return X_GAP;
+        }
+        let subtreeWidth = 0;
+        for (const child of children) {
+          const w = layoutSubtree(child, depth + 1, startX + subtreeWidth);
+          subtreeWidth += w;
+        }
+        node.x = Math.round(startX + (subtreeWidth - X_GAP) / 2);
+        node.y = Math.round(depth * Y_GAP);
+        return subtreeWidth;
+      }
+
+      for (const root of roots) {
+        const w = layoutSubtree(root, 0, cursorX);
+        cursorX += w + 80;
+      }
+
+      syncBoardDOM();
+      fitAllNodes();
+
+      for (const node of state.nodes.values()) {
+        saveNodeToCloud(node);
+      }
+      showToast("🪄 已完成節點工作流自動排版", "success");
+    };
+
+    // ==========================================
+    // 7. 無閃爍增量 DOM 渲染引擎 (In-Place Diffing)
+    // ==========================================
+    function getNodeVisualMeta(type, answered) {
+      if (answered) {
+        return {
+          floatingBadge: '🕊️ 已交託平安',
+          floatingBadgeClass: 'bg-[#24ef95] text-zinc-950',
+          iconPrimary: '🕊️',
+          iconSecondary: '✝',
+          categoryName: '已蒙應允',
+          portColor: '#24ef95',
+          lineColor: '#24ef95'
+        };
+      }
+      switch (type) {
+        case 'anxiety':
+          return {
+            floatingBadge: '🔥 焦慮重擔',
+            floatingBadgeClass: 'bg-[#ef4444] text-white', // 參考圖同款紅色浮動標籤
+            iconPrimary: '🔥',
+            iconSecondary: '🙏',
+            categoryName: '焦慮禱告',
+            portColor: '#ef4444',
+            lineColor: '#ef4444'
+          };
+        case 'gratitude':
+          return {
+            floatingBadge: '🌸 感恩獻上',
+            floatingBadgeClass: 'bg-[#e4f33b] text-zinc-950',
+            iconPrimary: '🌸',
+            iconSecondary: '✨',
+            categoryName: '感恩回應',
+            portColor: '#24ef95',
+            lineColor: '#24ef95'
+          };
+        case 'scripture':
+          return {
+            floatingBadge: '📜 聖經應許',
+            floatingBadgeClass: 'bg-[#a58cf5] text-zinc-950',
+            iconPrimary: '📜',
+            iconSecondary: '✝',
+            categoryName: '和合本經文',
+            portColor: '#a58cf5',
+            lineColor: '#24ef95'
+          };
+        case 'reflection':
+        default:
+          return {
+            floatingBadge: '✍️ 靈修心得',
+            floatingBadgeClass: 'bg-[#24ef95] text-zinc-950',
+            iconPrimary: '✍️',
+            iconSecondary: '💡',
+            categoryName: '心得分支',
+            portColor: '#24ef95',
+            lineColor: '#24ef95'
+          };
+      }
+    }
+
+    function syncBoardDOM(newlyCreatedIds = new Set()) {
+      const query = state.searchQuery.trim().toLowerCase();
+      const visibleIds = new Set();
+
+      for (const node of state.nodes.values()) {
+        if (isNodeHiddenByCollapse(node)) continue;
+        visibleIds.add(node.id);
+
+        let cardEl = state.nodeElements.get(node.id);
+        const isNew = !cardEl;
+
+        if (isNew) {
+          cardEl = createNodeElement(node);
+          if (newlyCreatedIds.has(node.id)) {
+            cardEl.classList.add('node-just-created');
+          }
+          state.nodeElements.set(node.id, cardEl);
+          nodesContainer.appendChild(cardEl);
+        }
+
+        // 就地更新卡片屬性與內容 (不摧毀 DOM，徹底杜絕閃爍！)
+        updateNodeElementInPlace(cardEl, node, query);
+      }
+
+      // 移除不再可見或已刪除的 DOM 節點
+      for (const [id, el] of state.nodeElements.entries()) {
+        if (!visibleIds.has(id)) {
+          el.remove();
+          state.nodeElements.delete(id);
+        }
+      }
+
+      renderConnections();
+    }
+
+    function createNodeElement(node) {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'flow-node';
+      cardEl.dataset.nodeId = node.id;
+
+      cardEl.innerHTML = `
+        <!-- 頂部連線端口 -->
+        <div class="node-port node-port-top" data-role="port-top"></div>
+
+        <!-- 左上浮動狀態標籤 (參考圖 ! Error 紅色膠囊風格) -->
+        <div data-role="floating-badge" class="absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide"></div>
+
+        <!-- 卡片頂部圖示與圓形功能按鈕 [ ••• | × | ✓ ] -->
+        <div class="flex items-center justify-between px-4 pt-5 pb-2">
+          <div class="flex items-center gap-1.5">
+            <span data-role="icon-1" class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm shadow-inner"></span>
+            <span class="text-xs font-bold text-zinc-300">›</span>
+            <span data-role="icon-2" class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm shadow-inner"></span>
+            <span data-role="cat-label" class="text-[11px] font-semibold text-zinc-400 ml-1"></span>
+          </div>
+
+          <!-- 參考圖同款右上角三顆圓形按鈕 -->
+          <div class="flex items-center gap-1">
+            <button data-role="btn-ai-mini" title="AI 尋找契合經文" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold flex items-center justify-center transition">•••</button>
+            <button data-role="btn-del" title="移除此卡片" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-rose-100 text-zinc-600 hover:text-rose-600 text-[11px] font-bold flex items-center justify-center transition">✕</button>
+            <button data-role="btn-check" title="標記為交託平安 / 已蒙應允" class="w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center transition shadow-sm">✓</button>
+          </div>
+        </div>
+
+        <!-- 卡片可編輯內容區 -->
+        <div class="px-4 py-1.5 space-y-1">
+          <input
+            type="text"
+            data-role="input-title"
+            placeholder="輸入禱告主題..."
+            onpointerdown="event.stopPropagation()"
+            class="w-full bg-transparent font-bold text-[14px] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-zinc-50 rounded-lg px-1 -mx-1"
+          />
+          <textarea
+            data-role="input-content"
+            rows="3"
+            placeholder="寫下你的焦慮、感謝或靈修心得..."
+            onpointerdown="event.stopPropagation()"
+            class="w-full bg-transparent text-[12px] leading-relaxed text-zinc-600 placeholder-zinc-400 focus:outline-none focus:bg-zinc-50 rounded-lg px-1 -mx-1 resize-none"
+          ></textarea>
+          <div data-role="ref-text" class="text-[10px] font-semibold text-purple-600 hidden"></div>
+        </div>
+
+        <!-- 卡片底部快速操作列 -->
+        <div class="px-4 py-2.5 mt-1 border-t border-zinc-100 flex items-center justify-between gap-1.5 bg-zinc-50/70 rounded-b-[22px]">
+          <button
+            data-role="btn-ai-main"
+            class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#a58cf5]/20 hover:bg-[#a58cf5]/35 text-zinc-900 font-bold text-[11px] transition"
+          >
+            <span>✨</span>
+            <span data-role="btn-ai-label">AI 找經文</span>
+          </button>
+
+          <div class="flex items-center gap-1">
+            <button
+              data-role="btn-add-reflection"
+              class="px-2.5 py-1.5 rounded-full bg-[#24ef95]/25 hover:bg-[#24ef95]/45 text-zinc-900 font-bold text-[11px] transition"
+            >＋心得</button>
+            <button
+              data-role="btn-add-gratitude"
+              class="px-2.5 py-1.5 rounded-full bg-[#e4f33b]/45 hover:bg-[#e4f33b]/70 text-zinc-900 font-bold text-[11px] transition"
+            >＋感恩</button>
+          </div>
+        </div>
+
+        <!-- 底部連線端口 -->
+        <div class="node-port node-port-bottom" data-role="port-bottom"></div>
+
+        <!-- XMind 展開 / 收合分支按鈕 -->
+        <button data-role="btn-collapse" class="xmind-collapse-pill hidden"></button>
+      `;
+
+      // 綁定內部靜態事件
+      const titleInput = cardEl.querySelector('[data-role="input-title"]');
+      titleInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { title: e.target.value }));
+
+      const contentInput = cardEl.querySelector('[data-role="input-content"]');
+      contentInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { content: e.target.value }));
+
+      cardEl.querySelector('[data-role="btn-ai-mini"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.findScriptureWithAI(node.id);
+      });
+      cardEl.querySelector('[data-role="btn-ai-main"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.findScriptureWithAI(node.id);
+      });
+      cardEl.querySelector('[data-role="btn-del"]').addEventListener('click', (e) => {
+        window.openConfirmDelete(e, node.id);
+      });
+      cardEl.querySelector('[data-role="btn-check"]').addEventListener('click', (e) => {
+        window.toggleAnswered(e, node.id);
+      });
+      cardEl.querySelector('[data-role="btn-add-reflection"]').addEventListener('click', (e) => {
+        window.addChildBranch(e, node.id, 'reflection');
+      });
+      cardEl.querySelector('[data-role="btn-add-gratitude"]').addEventListener('click', (e) => {
+        window.addChildBranch(e, node.id, 'gratitude');
+      });
+      cardEl.querySelector('[data-role="btn-collapse"]').addEventListener('click', (e) => {
+        window.toggleCollapseBranch(e, node.id);
+      });
+
+      setupCardDrag(cardEl, node.id);
+      return cardEl;
+    }
+
+    function updateNodeElementInPlace(cardEl, node, query) {
+      const meta = getNodeVisualMeta(node.type, node.answered);
+      const childCount = countDescendants(node.id);
+      const isLoadingAI = state.aiLoadingIds.has(node.id);
+      const isSelected = state.selectedNodeId === node.id;
+
+      // 篩選與搜尋淡化
+      const matchesFilter = state.filterType === 'all' || node.type === state.filterType;
+      const matchesSearch = !query ||
+        (node.title && node.title.toLowerCase().includes(query)) ||
+        (node.content && node.content.toLowerCase().includes(query));
+      const isDimmed = !matchesFilter || !matchesSearch;
+
+      // 更新座標 (若非正在拖曳中)
+      if (!state.draggingNodeIds.has(node.id)) {
+        cardEl.style.left = `${node.x}px`;
+        cardEl.style.top = `${node.y}px`;
+      }
+
+      cardEl.classList.toggle('is-selected', isSelected);
+      cardEl.style.opacity = isDimmed ? '0.22' : '1';
+
+      // 更新端口顏色
+      cardEl.querySelector('[data-role="port-top"]').style.backgroundColor = meta.portColor;
+      cardEl.querySelector('[data-role="port-bottom"]').style.backgroundColor = meta.portColor;
+
+      // 更新浮動狀態膠囊
+      const badgeEl = cardEl.querySelector('[data-role="floating-badge"]');
+      badgeEl.textContent = meta.floatingBadge;
+      badgeEl.className = `absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide ${meta.floatingBadgeClass}`;
+
+      // 更新頭部圖示與分類名稱
+      cardEl.querySelector('[data-role="icon-1"]').textContent = meta.iconPrimary;
+      cardEl.querySelector('[data-role="icon-2"]').textContent = meta.iconSecondary;
+      cardEl.querySelector('[data-role="cat-label"]').textContent = meta.categoryName;
+
+      // 更新右上角 ✓ 按鈕樣式 (參考圖實心黑圓圈白勾勾)
+      const checkBtn = cardEl.querySelector('[data-role="btn-check"]');
+      checkBtn.className = node.answered
+        ? 'w-6 h-6 rounded-full bg-[#24ef95] text-zinc-950 text-[11px] font-black flex items-center justify-center transition shadow-sm'
+        : 'w-6 h-6 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white text-[11px] font-bold flex items-center justify-center transition shadow-sm';
+
+      // 僅在輸入框未處於聚焦狀態時同步文字，避免打字時游標跳動
+      const titleInput = cardEl.querySelector('[data-role="input-title"]');
+      if (document.activeElement !== titleInput && titleInput.value !== (node.title || '')) {
+        titleInput.value = node.title || '';
+      }
+
+      const contentInput = cardEl.querySelector('[data-role="input-content"]');
+      if (document.activeElement !== contentInput && contentInput.value !== (node.content || '')) {
+        contentInput.value = node.content || '';
+      }
+
+      const refEl = cardEl.querySelector('[data-role="ref-text"]');
+      if (node.reference) {
+        refEl.textContent = `— ${node.reference}`;
+        refEl.classList.remove('hidden');
+      } else {
+        refEl.classList.add('hidden');
+      }
+
+      // 更新 AI 按鈕狀態
+      const aiMainBtn = cardEl.querySelector('[data-role="btn-ai-main"]');
+      const aiLabel = cardEl.querySelector('[data-role="btn-ai-label"]');
+      aiMainBtn.disabled = isLoadingAI;
+      aiLabel.textContent = isLoadingAI ? '查考中...' : 'AI 找經文';
+
+      // 更新 XMind 展開 / 收合膠囊
+      const collapseBtn = cardEl.querySelector('[data-role="btn-collapse"]');
+      if (childCount > 0) {
+        collapseBtn.classList.remove('hidden');
+        collapseBtn.textContent = `${node.collapsed ? '+' : '−'} ${childCount}`;
+        collapseBtn.className = `xmind-collapse-pill ${
+          node.collapsed
+            ? 'bg-[#24ef95] text-zinc-950'
+            : 'bg-[#222227] text-white border border-white/20'
+        }`;
+        collapseBtn.title = node.collapsed ? `展開 ${childCount} 個子分支` : '收合分支';
+      } else {
+        collapseBtn.classList.add('hidden');
+      }
+    }
+
+    // 繪製參考圖同款虛線工作流連線
+    function renderConnections() {
+      const SVG_OFFSET = 12000;
+      const fragments = [];
+
+      for (const node of state.nodes.values()) {
+        if (!node.parentId || !state.nodes.has(node.parentId)) continue;
+        if (isNodeHiddenByCollapse(node)) continue;
+
+        const parent = state.nodes.get(node.parentId);
+        if (isNodeHiddenByCollapse(parent)) continue;
+
+        const parentEl = state.nodeElements.get(parent.id);
+        const childEl = state.nodeElements.get(node.id);
+        const parentW = parentEl ? parentEl.offsetWidth : 300;
+        const parentH = parentEl ? parentEl.offsetHeight : 195;
+        const childW = childEl ? childEl.offsetWidth : 300;
+
+        const meta = getNodeVisualMeta(node.type, node.answered);
+        const x1 = parent.x + parentW / 2 + SVG_OFFSET;
+        const y1 = parent.y + parentH + SVG_OFFSET;
+        const x2 = node.x + childW / 2 + SVG_OFFSET;
+        const y2 = node.y + SVG_OFFSET;
+
+        const deltaY = Math.max(45, Math.abs(y2 - y1) * 0.5);
+        const d = `M ${x1} ${y1} C ${x1} ${y1 + deltaY}, ${x2} ${y2 - deltaY}, ${x2} ${y2}`;
+
+        fragments.push(
+          `<path d="${d}" stroke="${meta.lineColor}" class="flow-connector" />` +
+          `<circle cx="${x1}" cy="${y1}" r="3.5" fill="${meta.lineColor}" />` +
+          `<circle cx="${x2}" cy="${y2}" r="3.5" fill="${meta.lineColor}" />`
+        );
+      }
+
+      connectionsLayer.innerHTML = fragments.join('');
+    }
+
+    window.toggleAnswered = async function (e, nodeId) {
+      e.stopPropagation();
+      const node = state.nodes.get(nodeId);
+      if (!node) return;
+      const next = !node.answered;
+      await window.updateNodeFields(nodeId, { answered: next });
+      if (next) {
+        showToast("🕊️ 感謝主！已將此節點標記為「交託得平安」", "success");
+      }
+    };
+
+    // ==========================================
+    // 8. 無限畫布平移、縮放與卡片順滑拖曳 (零閃爍)
+    // ==========================================
+    function applyViewportTransform() {
+      canvasWorld.style.transform = `translate3d(${state.panX}px, ${state.panY}px, 0) scale(${state.scale})`;
+      const pct = `${Math.round(state.scale * 100)}%`;
+      const indicator = document.getElementById('zoom-indicator');
+      if (indicator) indicator.textContent = `畫布縮放：${pct}`;
+    }
+
+    function setupCardDrag(cardEl, nodeId) {
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let dragStartPositions = new Map(); // id -> { x, y } 包含母集與所有子集
+      let moved = false;
+      let rafPending = false;
+
+      cardEl.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return;
+        e.stopPropagation();
+
+        const node = state.nodes.get(nodeId);
+        if (!node) return;
+
+        isDragging = true;
+        moved = false;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        // 收集母集與所有階層子集（包含目前收合的子分支，確保展開時位置正確）
+        dragStartPositions.clear();
+        state.draggingNodeIds.clear();
+
+        const descendantIds = getDescendantIds(nodeId);
+        const allMovingIds = [nodeId, ...descendantIds];
+
+        for (const id of allMovingIds) {
+          const targetNode = state.nodes.get(id);
+          if (targetNode) {
+            dragStartPositions.set(id, { x: targetNode.x, y: targetNode.y });
+            state.draggingNodeIds.add(id);
+            if (id !== nodeId) {
+              const childEl = state.nodeElements.get(id);
+              if (childEl) childEl.classList.add('is-subtree-dragging');
+            }
+          }
+        }
+
+        // 僅切換選取邊框樣式，絕不重繪整個畫布
+        if (state.selectedNodeId !== nodeId) {
+          const prevEl = state.nodeElements.get(state.selectedNodeId);
+          if (prevEl) prevEl.classList.remove('is-selected');
+          state.selectedNodeId = nodeId;
+          cardEl.classList.add('is-selected');
+        }
+
+        cardEl.classList.add('is-dragging');
+        cardEl.setPointerCapture(e.pointerId);
+      });
+
+      cardEl.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+
+        const dx = (e.clientX - startX) / state.scale;
+        const dy = (e.clientY - startY) / state.scale;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+
+        for (const [id, orig] of dragStartPositions.entries()) {
+          const targetNode = state.nodes.get(id);
+          if (targetNode) {
+            targetNode.x = Math.round(orig.x + dx);
+            targetNode.y = Math.round(orig.y + dy);
+          }
+        }
+
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            for (const id of dragStartPositions.keys()) {
+              const targetNode = state.nodes.get(id);
+              const targetEl = state.nodeElements.get(id);
+              if (targetNode && targetEl) {
+                targetEl.style.left = `${targetNode.x}px`;
+                targetEl.style.top = `${targetNode.y}px`;
+              }
+            }
+            renderConnections();
+            rafPending = false;
+          });
+        }
+      });
+
+      const endDrag = async (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        cardEl.classList.remove('is-dragging');
+        try { cardEl.releasePointerCapture(e.pointerId); } catch (_) {}
+
+        const movedNodes = [];
+        for (const id of dragStartPositions.keys()) {
+          const childEl = state.nodeElements.get(id);
+          if (childEl) childEl.classList.remove('is-subtree-dragging');
+          const targetNode = state.nodes.get(id);
+          if (targetNode) movedNodes.push(targetNode);
+        }
+
+        state.draggingNodeIds.clear();
+        dragStartPositions.clear();
+
+        if (moved && movedNodes.length > 0) {
+          await saveMultipleNodesToCloud(movedNodes);
+        }
+      };
+
+      cardEl.addEventListener('pointerup', endDrag);
+      cardEl.addEventListener('pointercancel', endDrag);
+    }
+
+    // 畫布平移
+    let isPanning = false;
+    let panStartX = 0, panStartY = 0;
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.flow-node')) return;
+      isPanning = true;
+      viewport.classList.add('is-panning');
+      panStartX = e.clientX - state.panX;
+      panStartY = e.clientY - state.panY;
+
+      if (state.selectedNodeId) {
+        const prevEl = state.nodeElements.get(state.selectedNodeId);
+        if (prevEl) prevEl.classList.remove('is-selected');
+        state.selectedNodeId = null;
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isPanning) return;
+      state.panX = e.clientX - panStartX;
+      state.panY = e.clientY - panStartY;
+      applyViewportTransform();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (isPanning) {
+        isPanning = false;
+        viewport.classList.remove('is-panning');
+      }
+    });
+
+    // 滾輪縮放
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const nextScale = Math.min(2.2, Math.max(0.25, state.scale * factor));
+      const rect = viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      state.panX = mx - ((mx - state.panX) / state.scale) * nextScale;
+      state.panY = my - ((my - state.panY) / state.scale) * nextScale;
+      state.scale = nextScale;
+      applyViewportTransform();
+    }, { passive: false });
+
+    // 雙擊畫布任意位置建立新節點
+    let pendingWorldPos = null;
+    viewport.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.flow-node')) return;
+      pendingWorldPos = {
+        x: Math.round((e.clientX - state.panX) / state.scale - 150),
+        y: Math.round((e.clientY - state.panY) / state.scale - 90)
+      };
+      window.openCreateModal('anxiety');
+    });
+
+    // 支援從右側側邊欄直接拖拉彩色模板卡片到畫布上 (對標參考圖拖曳綠色卡片效果)
+    window.handleTemplateDragStart = function (e, type) {
+      e.dataTransfer.setData('text/plain', type);
+    };
+
+    viewport.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    viewport.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('text/plain');
+      if (!type) return;
+      pendingWorldPos = {
+        x: Math.round((e.clientX - state.panX) / state.scale - 150),
+        y: Math.round((e.clientY - state.panY) / state.scale - 90)
+      };
+      window.openCreateModal(type);
+    });
+
+    window.zoomCanvas = function (delta) {
+      const nextScale = Math.min(2.2, Math.max(0.25, state.scale + delta));
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      state.panX = cx - ((cx - state.panX) / state.scale) * nextScale;
+      state.panY = cy - ((cy - state.panY) / state.scale) * nextScale;
+      state.scale = nextScale;
+      applyViewportTransform();
+    };
+
+    window.resetView = function () {
+      state.scale = 1;
+      state.panX = window.innerWidth / 2 - 150;
+      state.panY = 130;
+      applyViewportTransform();
+    };
+
+    window.fitAllNodes = function () {
+      const visible = [...state.nodes.values()].filter(n => !isNodeHiddenByCollapse(n));
+      if (visible.length === 0) {
+        window.resetView();
+        return;
+      }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of visible) {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + 300);
+        maxY = Math.max(maxY, n.y + 220);
+      }
+      const usableW = window.innerWidth >= 1024 ? window.innerWidth - 560 : window.innerWidth - 48;
+      const usableH = window.innerHeight - 140;
+      const scaleX = usableW / (maxX - minX + 100);
+      const scaleY = usableH / (maxY - minY + 100);
+      state.scale = Math.min(1.05, Math.max(0.3, Math.min(scaleX, scaleY)));
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      state.panX = window.innerWidth / 2 - centerX * state.scale;
+      state.panY = (window.innerHeight + 56) / 2 - centerY * state.scale;
+      applyViewportTransform();
+    };
+
+    // ==========================================
+    // 9. 彈窗、篩選與手機側邊欄控制
+    // ==========================================
+    let currentModalType = 'anxiety';
+
+    window.openCreateModal = function (type = 'anxiety') {
+      selectModalType(type);
+      document.getElementById('modal-input-title').value = '';
+      document.getElementById('modal-input-content').value = '';
+      const modal = document.getElementById('node-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => document.getElementById('modal-input-title').focus(), 40);
+    };
+
+    window.closeNodeModal = function () {
+      const modal = document.getElementById('node-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingWorldPos = null;
+    };
+
+    window.selectModalType = function (type) {
+      currentModalType = type;
+      const meta = {
+        anxiety: { icon: '🔥', title: '貼上新的焦慮重擔', placeholder: '例如：擔心家人的健康、對未來的迷惘...' },
+        gratitude: { icon: '🌸', title: '貼上今日感恩與恩典', placeholder: '例如：感謝神今天賜下意外的幫助...' },
+        reflection: { icon: '✍️', title: '紀錄靈修心得與筆記', placeholder: '例如：今天讀經或禱告時的感動...' }
+      }[type];
+
+      document.getElementById('modal-type-icon').textContent = meta.icon;
+      document.getElementById('modal-title').textContent = meta.title;
+      document.getElementById('modal-input-title').placeholder = meta.placeholder;
+
+      document.querySelectorAll('.modal-type-btn').forEach(btn => {
+        const active = btn.dataset.type === type;
+        btn.className = `modal-type-btn py-2 px-2 rounded-full text-xs font-bold transition ${
+          active
+            ? 'bg-white text-zinc-950 shadow'
+            : 'bg-white/[0.06] text-zinc-400 hover:text-white'
+        }`;
+      });
+    };
+
+    window.submitNodeModal = async function () {
+      const titleInput = document.getElementById('modal-input-title').value.trim();
+      const contentInput = document.getElementById('modal-input-content').value.trim();
+      const autoAI = document.getElementById('modal-auto-ai').checked;
+
+      if (!titleInput && !contentInput) {
+        showToast("請至少輸入主題或禱告內容", "warning");
+        return;
+      }
+
+      const defaultTitles = {
+        anxiety: '交託的焦慮',
+        gratitude: '獻上的感謝',
+        reflection: '靈修心得'
+      };
+
+      const pos = pendingWorldPos || {
+        x: Math.round((window.innerWidth / 2 - state.panX) / state.scale - 150 + (Math.random() * 50 - 25)),
+        y: Math.round((window.innerHeight / 2 - state.panY) / state.scale - 90 + (Math.random() * 50 - 25))
+      };
+
+      const newId = 'node-' + crypto.randomUUID().slice(0, 8);
+      const newNode = {
+        id: newId,
+        parentId: state.selectedNodeId || null,
+        type: currentModalType,
+        title: titleInput || defaultTitles[currentModalType],
+        content: contentInput,
+        reference: '',
+        x: pos.x,
+        y: pos.y,
+        collapsed: false,
+        answered: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      window.closeNodeModal();
+      state.nodes.set(newId, newNode);
+      state.selectedNodeId = newId;
+      syncBoardDOM(new Set([newId]));
+      await saveNodeToCloud(newNode);
+      showToast("✨ 已貼上禱告節點！", "success");
+
+      if (autoAI) {
+        await window.findScriptureWithAI(newId);
+      }
+    };
+
+    window.openConfirmDelete = function (e, nodeId) {
+      e.stopPropagation();
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        window.closeConfirmModal();
+        await deleteNodeCascade(nodeId);
+      };
+    };
+
+    window.deleteSelectedNode = function () {
+      if (!state.selectedNodeId || !state.nodes.has(state.selectedNodeId)) {
+        showToast("請先點選畫布上要移除的節點卡片", "warning");
+        return;
+      }
+      window.openConfirmDelete({ stopPropagation: () => {} }, state.selectedNodeId);
+    };
+
+    window.closeConfirmModal = function () {
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
+
+    window.setFilter = function (type) {
+      state.filterType = type;
+      document.querySelectorAll('.nav-filter-btn').forEach(btn => {
+        btn.className = 'nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition';
+      });
+      const activeBtn = document.getElementById(`nav-filter-${type}`);
+      if (activeBtn) {
+        activeBtn.className = 'nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-zinc-950 shadow transition';
+      }
+      syncBoardDOM();
+    };
+
+    window.handleSearch = function (val) {
+      state.searchQuery = val;
+      syncBoardDOM();
+    };
+
+    window.toggleMobileDrawer = function (side) {
+      const leftEl = document.getElementById('left-sidebar');
+      const rightEl = document.getElementById('right-sidebar');
+      if (side === 'left') {
+        leftEl.classList.toggle('-translate-x-[120%]');
+        rightEl.classList.add('translate-x-[120%]');
+      } else {
+        rightEl.classList.toggle('translate-x-[120%]');
+        leftEl.classList.add('-translate-x-[120%]');
+      }
+    };
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // 啟動初始化
+    applyViewportTransform();
+    initAuthAndCloud();
+  </script>
+</body>
+</html>
