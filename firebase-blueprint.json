@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "PrayerNode": {
+      "title": "PrayerNode",
+      "description": "A prayer, anxiety, gratitude, reflection, or scripture node on the user's orbital canvas.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node identifier",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owning user",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Optional parent node ID (empty or omitted for orbital root nodes)",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]*$"
+        },
+        "type": {
+          "type": "string",
+          "description": "Category of the prayer node",
+          "enum": ["anxiety", "gratitude", "reflection", "scripture"],
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "description": "Node title or verse reference",
+          "maxLength": 200
+        },
+        "content": {
+          "type": "string",
+          "description": "Prayer note, reflection text, or scripture verse content",
+          "maxLength": 5000
+        },
+        "reference": {
+          "type": "string",
+          "description": "Optional Bible translation or attribution note",
+          "maxLength": 200
+        },
+        "x": {
+          "type": "number",
+          "description": "World X coordinate on the orbital canvas"
+        },
+        "y": {
+          "type": "number",
+          "description": "World Y coordinate on the orbital canvas"
+        },
+        "collapsed": {
+          "type": "boolean",
+          "description": "Whether the node's card/children are collapsed"
+        },
+        "answered": {
+          "type": "boolean",
+          "description": "Whether the prayer is marked as answered / at peace"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "type",
+        "title",
+        "content",
+        "x",
+        "y",
+        "collapsed",
+        "answered",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserPreference": {
+      "title": "UserPreference",
+      "description": "Per-user workspace preferences stored in Firestore.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owning user",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dailyVerseIndex": {
+          "type": "number",
+          "description": "Selected daily verse index override"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp"
+        }
+      },
+      "required": ["ownerId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/prayer_nodes/{nodeId}": {
+      "schema": { "$ref": "#/entities/PrayerNode" },
+      "description": "Stores each authenticated user's prayer canvas nodes."
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/UserPreference" },
+      "description": "Stores per-user workspace preferences."
+    }
+  }
+}

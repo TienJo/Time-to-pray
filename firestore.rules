@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true;
+    }
+
+    function isValidParentId(data) {
+      return !('parentId' in data)
+        || data.parentId == null
+        || (data.parentId is string && data.parentId.size() <= 128 && data.parentId.matches('^[a-zA-Z0-9_\\-]*$'));
+    }
+
+    function isValidCoord(val) {
+      return val is number && val >= -50000 && val <= 50000;
+    }
+
+    function isValidPrayerNode(data) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'type', 'title', 'content',
+          'x', 'y', 'collapsed', 'answered', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'parentId', 'type', 'title', 'content',
+          'reference', 'x', 'y', 'collapsed', 'answered', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && isValidParentId(data)
+        && data.type is string
+        && data.type in ['anxiety', 'gratitude', 'reflection', 'scripture']
+        && data.title is string
+        && data.title.size() <= 200
+        && data.content is string
+        && data.content.size() <= 5000
+        && (!('reference' in data) || (data.reference is string && data.reference.size() <= 200))
+        && isValidCoord(data.x)
+        && isValidCoord(data.y)
+        && data.collapsed is bool
+        && data.answered is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPreference(data) {
+      return data.keys().hasAll(['ownerId', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'dailyVerseIndex', 'updatedAt'])
+        && data.ownerId is string
+        && data.ownerId == request.auth.uid
+        && (!('dailyVerseIndex' in data) || (data.dailyVerseIndex is number && data.dailyVerseIndex >= 0 && data.dailyVerseIndex <= 1000))
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/prayer_nodes/{nodeId} {
+      allow get: if isVerifiedOwner(userId) && isValidId(nodeId);
+      allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedOwner(userId)
+        && isValidId(nodeId)
+        && isValidPrayerNode(incoming())
+        && incoming().id == nodeId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (!('parentId' in incoming())
+          || incoming().parentId == null
+          || incoming().parentId == ''
+          || existsAfter(/databases/$(database)/documents/users/$(userId)/prayer_nodes/$(incoming().parentId)));
+
+      allow update: if isVerifiedOwner(userId)
+        && isValidId(nodeId)
+        && isValidPrayerNode(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'reference', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['x', 'y', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['collapsed', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['answered', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['parentId', 'title', 'content', 'reference', 'x', 'y', 'collapsed', 'answered', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedOwner(userId) && isValidId(nodeId);
+    }
+
+    match /users/{userId}/settings/{settingId} {
+      allow get: if isVerifiedOwner(userId) && isValidId(settingId);
+      allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedOwner(userId)
+        && isValidId(settingId)
+        && isValidUserPreference(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedOwner(userId)
+        && isValidId(settingId)
+        && isValidUserPreference(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['dailyVerseIndex', 'updatedAt']);
+
+      allow delete: if isVerifiedOwner(userId) && isValidId(settingId);
+    }
+  }
+}

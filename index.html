@@ -4,14 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Time to pray — 軌道禱告心智畫布</title>
+  <meta name="description" content="暗黑心智畫布與 AI 聖經查考 — 無限禱告心智圖畫布" />
+  <meta property="og:title" content="Time to pray" />
+  <meta property="og:description" content="暗黑心智畫布與 AI 聖經查考 — 無限禱告心智圖畫布" />
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: Plus Jakarta Sans & Noto Sans TC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <!-- Google Identity Services (Google Client ID 登入) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     :root {
@@ -886,18 +887,18 @@
   </div>
 
   <!-- =========================================================
-       ⚙️ API Key 與雲端記憶設定彈窗
+       ⚙️ 雲端同步與 REST API 接口設定彈窗
        ========================================================= -->
   <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="bg-[#222227] border border-white/10 rounded-[28px] w-full max-w-md p-6 shadow-2xl">
+    <div class="bg-[#222227] border border-white/10 rounded-[28px] w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2.5">
           <div class="w-9 h-9 rounded-full bg-[#a58cf5] text-zinc-950 flex items-center justify-center text-base font-bold shadow">
             ⚙️
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">雲端記憶與系統設定</h3>
-            <p class="text-[11px] text-zinc-400">管理您的禱告地圖雲端同步狀態</p>
+            <h3 class="text-base font-bold text-white">雲端同步與 API 接口設定</h3>
+            <p class="text-[11px] text-zinc-400">Firebase 雲端存檔與 REST API 串接說明</p>
           </div>
         </div>
         <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
@@ -905,13 +906,46 @@
 
       <div class="space-y-4">
         <!-- 雲端同步狀態說明 -->
-        <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex items-center justify-between text-xs">
-          <span class="text-zinc-300">雲端資料庫記憶狀態</span>
-          <span id="settings-cloud-state" class="font-semibold text-[#24ef95]">檢查中...</span>
+        <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 space-y-2 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-zinc-300">雲端資料庫記憶狀態</span>
+            <span id="settings-cloud-state" class="font-semibold text-[#24ef95] text-right">檢查中...</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-zinc-400">目前帳號</span>
+            <span id="settings-account-email" class="font-mono text-zinc-200 truncate max-w-[240px]">尚未登入</span>
+          </div>
         </div>
-        <p class="text-xs text-zinc-400 leading-relaxed px-1">
-          本應用程式已內建伺服器端 Google Gemini AI 智慧經文查考，所有開啟此應用程式的使用者皆可直接使用 AI 查經功能。
-        </p>
+
+        <!-- 雲端 REST API 接口卡片 -->
+        <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white">雲端 REST API 接口（需攜帶 Firebase ID Token）</h4>
+            <button type="button" onclick="copyApiToken()" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] text-zinc-100 font-semibold transition">
+              複製 Bearer Token
+            </button>
+          </div>
+
+          <div class="space-y-1.5 font-mono text-[11px] text-zinc-300 bg-black/40 rounded-xl p-3 border border-white/5 overflow-x-auto">
+            <div><span class="text-[#24ef95]">GET</span>    /api/prayers</div>
+            <div><span class="text-[#60a5fa]">GET</span>    /api/prayers/:id</div>
+            <div><span class="text-[#e4f33b]">POST</span>   /api/prayers</div>
+            <div><span class="text-[#a58cf5]">PATCH</span>  /api/prayers/:id</div>
+            <div><span class="text-rose-400">DELETE</span> /api/prayers/:id?cascade=true</div>
+          </div>
+
+          <p class="text-[11px] text-zinc-400 leading-relaxed">
+            所有透過 API 新增、修改或刪除的資料皆會直接存入 Firestore 雲端資料庫並即時同步至畫布。於 GitHub Pages 純靜態網域開啟時，畫布會透過 Firebase SDK 直接與雲端 Firestore 雙向同步，並自動保留本機離線備份。
+          </p>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="testCloudRestApi()" class="px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition">
+              測試 API 接口 (GET /api/prayers)
+            </button>
+            <span id="api-test-status" class="text-[11px] text-zinc-400 truncate"></span>
+          </div>
+          <pre id="api-test-output" class="hidden text-[10px] font-mono text-zinc-300 bg-black/50 border border-white/10 rounded-xl p-3 max-h-36 overflow-auto whitespace-pre-wrap"></pre>
+        </div>
       </div>
 
       <div class="flex items-center justify-end gap-2 mt-6">
@@ -953,18 +987,19 @@
             </svg>
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">Google 雲端帳號同步</h3>
-            <p class="text-[11px] text-zinc-400">連結帳號以跨裝置保存您的禱告地圖</p>
+            <h3 class="text-base font-bold text-white">Google 雲端帳號登入</h3>
+            <p class="text-[11px] text-zinc-400">登入後自動將禱告地圖存檔至雲端 Firestore</p>
           </div>
         </div>
         <button onclick="closeGoogleAuthModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
       </div>
 
-      <!-- 官方 Google 按鈕與 OAuth 網域白名單提示 -->
-      <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4 mb-4 flex flex-col items-center gap-3">
-        <div id="gis-button-container" class="min-h-[40px] flex items-center justify-center"></div>
+      <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4 flex flex-col items-center gap-3">
         <button onclick="launchGoogleOAuthPopup()" class="w-full py-2.5 px-4 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-xs shadow transition">
-          開啟 Google 帳號選擇視窗
+          使用 Google 帳號登入並同步雲端
+        </button>
+        <button onclick="launchGoogleOAuthRedirect()" class="w-full py-2 px-4 rounded-full bg-white/10 hover:bg-white/15 text-zinc-200 font-semibold text-xs transition">
+          若彈窗被瀏覽器阻擋，點此改用重導向登入
         </button>
         <div class="w-full bg-black/40 rounded-xl p-2.5 flex items-center justify-between gap-2 border border-white/5">
           <div class="text-[10px] text-zinc-400 truncate">
@@ -976,28 +1011,6 @@
         </div>
         <p id="origin-hint-text" class="text-[11px] text-amber-300/90 text-center leading-relaxed"></p>
       </div>
-
-      <!-- 快速連結帳號表單 -->
-      <div class="border-t border-white/10 pt-4">
-        <p class="text-xs font-semibold text-zinc-300 mb-2">快速連結雲端帳號</p>
-        <div class="space-y-2.5">
-          <input
-            type="text"
-            id="quick-google-name"
-            placeholder="輸入您的顯示名稱（例如：David）"
-            class="w-full bg-[#16161a] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
-          />
-          <input
-            type="email"
-            id="quick-google-email"
-            placeholder="輸入您的 Google 信箱（例如：name@gmail.com）"
-            class="w-full bg-[#16161a] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
-          />
-          <button onclick="submitQuickGoogleLink()" class="w-full py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 font-bold text-xs shadow-lg transition">
-            立即連結雲端帳號
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -1005,65 +1018,95 @@
   <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
 
   <!-- =========================================================
-       Firebase 雲端儲存 + Google Client ID + 無閃爍增量渲染引擎
+       Firebase 雲端儲存 + Google 登入 + 本機備份與無閃爍增量渲染引擎
        ========================================================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import {
       getAuth,
-      signInAnonymously,
-      signInWithCustomToken,
       GoogleAuthProvider,
-      signInWithCredential,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       signOut,
-      onAuthStateChanged
+      onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import {
       getFirestore,
       collection,
       doc,
       getDoc,
+      getDocFromServer,
       setDoc,
       updateDoc,
-      deleteDoc,
       writeBatch,
-      onSnapshot
+      onSnapshot,
+      query,
+      where,
+      serverTimestamp,
+      Timestamp
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ==========================================
-    // 1. 全域狀態與安全雲端初始化 (相容 GitHub Pages)
+    // 1. 全域狀態、本機儲存備份與雲端初始化 (相容 GitHub Pages)
     // ==========================================
-    const GOOGLE_CLIENT_ID = "865993916714-o0h883itsqd3lvgbatmkgqrqqhbrmuhf.apps.googleusercontent.com";
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'pryme-prayer-mindmap';
+    const LOCAL_STORAGE_KEY = 'time_to_pray_nodes_v1';
+    const LOCAL_PREF_KEY = 'time_to_pray_prefs_v1';
 
     let app = null;
     let auth = null;
     let db = null;
     let cloudAvailable = false;
-
-    try {
-      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-        const parsedConfig = typeof __firebase_config === 'string'
-          ? JSON.parse(__firebase_config)
-          : __firebase_config;
-        if (parsedConfig && parsedConfig.apiKey) {
-          app = initializeApp(parsedConfig);
-          auth = getAuth(app);
-          db = getFirestore(app);
-          cloudAvailable = true;
-        }
-      }
-    } catch (initErr) {
-      console.warn("Running in standalone mode (no external Firebase config):", initErr);
-      cloudAvailable = false;
-    }
-
     let currentUser = null;
-    let googleProfile = null;
     let unsubscribeNodes = null;
     let unsubscribeSettings = null;
-    let savedGeminiApiKey = "";
+    let hasSettingsDoc = false;
+    let activeCloudUid = null;
+
+    const OperationType = {
+      CREATE: 'create',
+      UPDATE: 'update',
+      DELETE: 'delete',
+      LIST: 'list',
+      GET: 'get',
+      WRITE: 'write',
+    };
+
+    function handleFirestoreError(error, operationType, path) {
+      const errInfo = {
+        error: error instanceof Error ? error.message : String(error),
+        authInfo: {
+          userId: auth?.currentUser?.uid,
+          email: auth?.currentUser?.email,
+          emailVerified: auth?.currentUser?.emailVerified,
+          isAnonymous: auth?.currentUser?.isAnonymous,
+          tenantId: auth?.currentUser?.tenantId,
+          providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+            providerId: provider.providerId,
+            displayName: provider.displayName,
+            email: provider.email,
+            photoUrl: provider.photoURL
+          })) || []
+        },
+        operationType,
+        path
+      };
+      console.error('Firestore Error: ', JSON.stringify(errInfo));
+      throw new Error(JSON.stringify(errInfo));
+    }
+
+    async function testConnection() {
+      if (!db) return;
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    }
 
     const state = {
       nodes: new Map(),           // nodeId -> node data
@@ -1082,6 +1125,51 @@
     const canvasWorld = document.getElementById('canvas-world');
     const connectionsLayer = document.getElementById('connections-layer');
     const nodesContainer = document.getElementById('nodes-container');
+
+    function toMillis(val) {
+      if (typeof val === 'number' && Number.isFinite(val)) return val;
+      if (val && typeof val.toMillis === 'function') return val.toMillis();
+      if (val && typeof val.seconds === 'number') return val.seconds * 1000;
+      return Date.now();
+    }
+
+    function normalizeNodeForMemory(raw, fallbackId = '') {
+      return {
+        id: String(raw.id || fallbackId),
+        parentId: raw.parentId ? String(raw.parentId) : null,
+        type: ['anxiety', 'gratitude', 'reflection', 'scripture'].includes(raw.type) ? raw.type : 'anxiety',
+        title: String(raw.title || '').slice(0, 200),
+        content: String(raw.content || '').slice(0, 5000),
+        reference: String(raw.reference || '').slice(0, 200),
+        x: Number.isFinite(Number(raw.x)) ? Number(raw.x) : 415,
+        y: Number.isFinite(Number(raw.y)) ? Number(raw.y) : 0,
+        collapsed: Boolean(raw.collapsed),
+        answered: Boolean(raw.answered),
+        createdAt: toMillis(raw.createdAt),
+        updatedAt: toMillis(raw.updatedAt),
+      };
+    }
+
+    function saveNodesToLocalStorage() {
+      try {
+        const list = [...state.nodes.values()].map(n => normalizeNodeForMemory(n, n.id));
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+      } catch (err) {
+        console.warn('Failed to write localStorage backup:', err);
+      }
+    }
+
+    function loadNodesFromLocalStorage() {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        return parsed.map(item => normalizeNodeForMemory(item, item.id)).filter(n => n.id);
+      } catch {
+        return null;
+      }
+    }
 
     // ==========================================
     // 2. Toast 提示系統
@@ -1118,203 +1206,156 @@
     }
 
     // ==========================================
-    // 3. Google Client ID 登入與雲端驗證
+    // 3. Firebase Google 登入與雲端驗證
     // ==========================================
-    let googleTokenClient = null;
-
     async function initAuthAndCloud() {
+      try {
+        const res = await fetch('./firebase-applet-config.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const parsedConfig = await res.json();
+        if (parsedConfig && parsedConfig.apiKey && parsedConfig.projectId) {
+          app = initializeApp(parsedConfig);
+          auth = getAuth(app);
+          db = parsedConfig.firestoreDatabaseId
+            ? getFirestore(app, parsedConfig.firestoreDatabaseId)
+            : getFirestore(app);
+          cloudAvailable = true;
+          await setPersistence(auth, browserLocalPersistence);
+          testConnection();
+        }
+      } catch (initErr) {
+        console.warn("Running in standalone localStorage mode (Firebase config unavailable):", initErr);
+        cloudAvailable = false;
+      }
+
       if (!cloudAvailable || !auth) {
-        setSyncStatus('standalone', '畫布已就緒');
-        await seedInitialWorkflow();
+        setSyncStatus('standalone', '本機儲存模式');
+        await loadLocalOrSeedWorkflow();
         return;
       }
 
       try {
-        setSyncStatus('syncing', '連線雲端中...');
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult && redirectResult.user) {
+          showToast(`✨ 歡迎回來，${redirectResult.user.displayName || redirectResult.user.email}！`, 'success');
         }
-      } catch (err) {
-        console.error("Auth init error:", err);
-        cloudAvailable = false;
-        setSyncStatus('standalone', '本機畫布模式');
-        if (state.nodes.size === 0) {
-          await seedInitialWorkflow();
-        }
+      } catch (redirectErr) {
+        console.warn("Redirect login notice:", redirectErr);
       }
-    }
 
-    if (auth) {
-      onAuthStateChanged(auth, (user) => {
-        currentUser = user;
-        if (user) {
-          updateAuthUI();
-          subscribeToUserSettings(user.uid);
-          subscribeToPrayerNodes(user.uid);
+      onAuthStateChanged(auth, async (user) => {
+        const isVerifiedGoogle = Boolean(user && !user.isAnonymous && user.emailVerified);
+        currentUser = isVerifiedGoogle ? user : null;
+        updateAuthUI();
+
+        if (currentUser) {
+          if (activeCloudUid === currentUser.uid) return;
+          activeCloudUid = currentUser.uid;
+          setSyncStatus('syncing', '連線雲端中...');
+          subscribeToUserSettings(currentUser.uid);
+          subscribeToPrayerNodes(currentUser.uid);
+        } else {
+          activeCloudUid = null;
+          if (unsubscribeNodes) { unsubscribeNodes(); unsubscribeNodes = null; }
+          if (unsubscribeSettings) { unsubscribeSettings(); unsubscribeSettings = null; }
+          hasSettingsDoc = false;
+          setSyncStatus('standalone', '本機儲存模式');
+          await loadLocalOrSeedWorkflow();
         }
       });
     }
 
-    function initGoogleIdentityClients() {
-      if (!window.google || !window.google.accounts) return false;
-      try {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: handleGoogleCredentialResponse,
-          auto_select: false
-        });
-
-        if (window.google.accounts.oauth2 && !googleTokenClient) {
-          googleTokenClient = window.google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: 'openid email profile',
-            prompt: 'select_account',
-            callback: handleGoogleOAuthTokenResponse,
-            error_callback: (err) => {
-              console.warn("OAuth popup notice:", err);
-              openGoogleAuthModal("若未能彈出視窗，請確認目前網域已加入 Google OAuth 白名單，或直接使用下方快速連結。");
-            }
-          });
+    async function loadLocalOrSeedWorkflow() {
+      const cached = loadNodesFromLocalStorage();
+      if (cached && cached.length > 0) {
+        state.nodes.clear();
+        for (const n of cached) {
+          state.nodes.set(n.id, n);
         }
-        return true;
-      } catch (e) {
-        return false;
+        snapAllRootsToOrbit(false);
+        syncBoardDOM();
+        fitAllNodes();
+      } else {
+        await seedInitialWorkflow();
       }
     }
 
-    window.addEventListener('load', () => {
-      initGoogleIdentityClients();
-    });
-
-    async function handleGoogleOAuthTokenResponse(tokenResponse) {
-      if (!tokenResponse || !tokenResponse.access_token) return;
-      try {
-        setSyncStatus('syncing', '取得 Google 資料中...');
-        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-        });
-        const profile = await userInfoRes.json();
-
-        googleProfile = {
-          name: profile.name || profile.email,
-          email: profile.email,
-          picture: profile.picture
-        };
-
-        window.closeGoogleAuthModal();
-        updateAuthUI();
-        setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
-        showToast(`✨ 歡迎回來，${googleProfile.name}！`, 'success');
-      } catch (err) {
-        showToast("無法讀取 Google 帳號資訊，請改用下方快速連結", "warning");
-      }
+    function getGoogleAuthProvider() {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      return provider;
     }
 
-    async function handleGoogleCredentialResponse(response) {
+    window.triggerGoogleSignIn = async function () {
+      if (!cloudAvailable || !auth) {
+        showToast("目前為離線單機模式，未偵測到雲端設定檔", "warning");
+        return;
+      }
       try {
-        const base64Url = response.credential.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
-          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-        ).join('')));
-
-        googleProfile = {
-          name: payload.name || payload.email,
-          email: payload.email,
-          picture: payload.picture
-        };
-
-        if (auth) {
-          try {
-            const credential = GoogleAuthProvider.credential(response.credential);
-            await signInWithCredential(auth, credential);
-          } catch (_) {}
+        const result = await signInWithPopup(auth, getGoogleAuthProvider());
+        if (result.user) {
+          window.closeGoogleAuthModal();
+          showToast(`✨ 已登入 ${result.user.displayName || result.user.email}，正在同步雲端資料！`, "success");
         }
-
-        window.closeGoogleAuthModal();
-        updateAuthUI();
-        setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
-        showToast(`✨ 歡迎回來，${googleProfile.name}！`, 'success');
       } catch (err) {
-        showToast("Google 登入驗證失敗，請再試一次", "error");
-      }
-    }
-
-    window.triggerGoogleSignIn = function () {
-      const ready = initGoogleIdentityClients();
-      const currentOrigin = window.location.origin || '';
-      const isSandboxed = !currentOrigin || currentOrigin === 'null' || currentOrigin.includes('googleusercontent.com') || currentOrigin.includes('webcontainer');
-
-      if (ready && googleTokenClient && !isSandboxed) {
-        try {
-          googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+        const code = err?.code || '';
+        console.warn("Google Sign-In error:", code, err?.message);
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
           return;
-        } catch (err) {
-          console.warn(err);
         }
+        const host = window.location.hostname || window.location.origin;
+        const hint = code === 'auth/unauthorized-domain'
+          ? `網域「${host}」尚未加入 Firebase Console → Authentication → Settings → Authorized domains 白名單。若為 GitHub Pages 部署，請將「${host}」加入白名單後重新登入。`
+          : code === 'auth/popup-blocked'
+          ? '瀏覽器阻擋了登入彈窗，請允許彈窗或改用下方「重導向登入」。'
+          : `登入提示 (${code || 'unknown'})：請確認彈窗權限或目前網域已加入 Firebase Authorized domains。`;
+        openGoogleAuthModal(hint);
       }
-
-      openGoogleAuthModal(
-        isSandboxed
-          ? "目前處於受限預覽網域，Google 安全性政策會阻擋未登記網域的彈窗；若部署至 GitHub Pages，請將上方網址加入 Google Cloud Console 的「已授權的 JavaScript 來源」。"
-          : "請點擊下方按鈕開啟 Google 帳號選擇視窗："
-      );
     };
 
-    window.launchGoogleOAuthPopup = function () {
-      initGoogleIdentityClients();
-      if (googleTokenClient) {
-        try {
-          googleTokenClient.requestAccessToken({ prompt: 'select_account' });
-          return;
-        } catch (e) {
-          console.warn(e);
-        }
+    window.launchGoogleOAuthPopup = async function () {
+      await window.triggerGoogleSignIn();
+    };
+
+    window.launchGoogleOAuthRedirect = async function () {
+      if (!cloudAvailable || !auth) return;
+      try {
+        await signInWithRedirect(auth, getGoogleAuthProvider());
+      } catch (err) {
+        showToast("重導向登入失敗，請確認網域白名單設定", "error");
       }
-      fallbackFirebaseGooglePopup();
     };
 
     function openGoogleAuthModal(hintMessage = '') {
       const modal = document.getElementById('google-auth-modal');
       const hintEl = document.getElementById('origin-hint-text');
       const originDisplay = document.getElementById('current-origin-display');
-      const btnContainer = document.getElementById('gis-button-container');
 
       if (originDisplay) {
-        originDisplay.textContent = window.location.origin || '未知網域';
+        originDisplay.textContent = window.location.hostname || window.location.origin || '未知網域';
       }
       if (hintEl) {
         hintEl.textContent = hintMessage;
-      }
-
-      if (btnContainer && window.google && window.google.accounts && window.google.accounts.id) {
-        btnContainer.innerHTML = '';
-        try {
-          window.google.accounts.id.renderButton(btnContainer, {
-            theme: 'filled_blue',
-            size: 'large',
-            shape: 'pill',
-            text: 'signin_with',
-            width: 260
-          });
-        } catch (_) {}
       }
 
       modal.classList.remove('hidden');
       modal.classList.add('flex');
     }
 
-    window.copyCurrentOrigin = function () {
-      const originText = window.location.origin || '';
-      const tempInput = document.createElement('input');
-      tempInput.value = originText;
-      document.body.appendChild(tempInput);
-      tempInput.select();
-      document.execCommand('copy');
-      document.body.removeChild(tempInput);
-      showToast(`已複製網域：${originText}`, "success");
+    window.copyCurrentOrigin = async function () {
+      const hostText = window.location.hostname || window.location.origin || '';
+      try {
+        await navigator.clipboard.writeText(hostText);
+        showToast(`已複製網域：${hostText}`, "success");
+      } catch {
+        const tempInput = document.createElement('input');
+        tempInput.value = hostText;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        showToast(`已複製網域：${hostText}`, "success");
+      }
     };
 
     window.closeGoogleAuthModal = function () {
@@ -1323,76 +1364,37 @@
       modal.classList.remove('flex');
     };
 
-    window.submitQuickGoogleLink = function () {
-      const nameVal = document.getElementById('quick-google-name').value.trim();
-      const emailVal = document.getElementById('quick-google-email').value.trim();
-      if (!emailVal && !nameVal) {
-        showToast("請輸入您的名稱或 Google 信箱", "warning");
-        return;
-      }
-      googleProfile = {
-        name: nameVal || emailVal.split('@')[0],
-        email: emailVal || 'cloud-user@gmail.com',
-        picture: ''
-      };
-      window.closeGoogleAuthModal();
-      updateAuthUI();
-      setSyncStatus(cloudAvailable ? 'synced' : 'standalone', cloudAvailable ? '已同步至雲端' : `已連結 ${googleProfile.name}`);
-      showToast(`✨ 已連結帳號「${googleProfile.name}」！`, "success");
-    };
-
-    async function fallbackFirebaseGooglePopup() {
-      if (!auth) {
-        showToast("請使用下方的「立即連結雲端帳號」完成登入！", "info");
-        return;
-      }
-      try {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        const result = await signInWithPopup(auth, provider);
-        if (result.user) {
-          googleProfile = {
-            name: result.user.displayName || 'Google 使用者',
-            email: result.user.email,
-            picture: result.user.photoURL
-          };
-          window.closeGoogleAuthModal();
-          updateAuthUI();
-          showToast("✨ 已透過 Google 登入並同步雲端！", "success");
-        }
-      } catch (err) {
-        showToast("請確認此網域已加入 OAuth 白名單，或直接使用下方快速連結！", "warning");
-      }
-    }
-
     window.handleSignOut = async function () {
-      googleProfile = null;
       if (auth) {
         try {
           await signOut(auth);
-          await signInAnonymously(auth);
-        } catch (_) {}
+        } catch (err) {
+          console.warn("Sign out notice:", err);
+        }
       }
+      currentUser = null;
+      activeCloudUid = null;
       updateAuthUI();
-      showToast("已登出 Google 帳號", "info");
+      showToast("已登出 Google 帳號（已切換回本機備份）", "info");
     };
 
     function updateAuthUI() {
       const container = document.getElementById('auth-container');
-      const isGoogleUser = googleProfile || (currentUser && !currentUser.isAnonymous && currentUser.providerData?.length > 0);
-      const displayName = googleProfile?.name || currentUser?.displayName || '已登入';
-      const photoUrl = googleProfile?.picture || currentUser?.photoURL;
+      if (!container) return;
+      const isGoogleUser = Boolean(currentUser && !currentUser.isAnonymous && currentUser.emailVerified);
+      const displayName = currentUser?.displayName || currentUser?.email || '已登入';
+      const photoUrl = currentUser?.photoURL;
 
       if (isGoogleUser) {
         container.innerHTML = `
           <div class="flex items-center gap-2 bg-white/[0.07] border border-white/10 pl-1.5 pr-3 py-1 rounded-full">
             ${photoUrl
-              ? `<img src="${photoUrl}" alt="avatar" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'">`
+              ? `<img src="${escapeHtml(photoUrl)}" alt="avatar" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'">`
               : `<div class="w-6 h-6 rounded-full bg-[#24ef95] text-zinc-950 font-bold text-xs flex items-center justify-center">${escapeHtml(displayName[0])}</div>`
             }
             <div class="text-left leading-tight hidden sm:block">
               <div class="text-xs font-semibold text-white max-w-[96px] truncate">${escapeHtml(displayName)}</div>
-              <div class="text-[9px] text-zinc-400">已連結雲端</div>
+              <div class="text-[9px] text-[#24ef95]">雲端已同步</div>
             </div>
             <button onclick="handleSignOut()" class="text-[11px] text-zinc-400 hover:text-rose-400 ml-1">登出</button>
           </div>
@@ -1413,29 +1415,77 @@
     }
 
     // ==========================================
-    // 4. 系統設定與雲端記憶 (Firestore)
+    // 4. 系統設定與 REST API 測試 (Firestore)
     // ==========================================
     function subscribeToUserSettings(uid) {
       if (!db || !uid) return;
       if (unsubscribeSettings) unsubscribeSettings();
 
-      const settingsDocRef = doc(db, 'artifacts', appId, 'users', uid, 'settings', 'preferences');
-      unsubscribeSettings = onSnapshot(settingsDocRef, (_snap) => {
-        // user settings sync
+      const settingsPath = `users/${uid}/settings/preferences`;
+      const settingsDocRef = doc(db, 'users', uid, 'settings', 'preferences');
+      unsubscribeSettings = onSnapshot(settingsDocRef, (snap) => {
+        hasSettingsDoc = snap.exists();
+        if (snap.exists()) {
+          const data = snap.data();
+          if (typeof data.dailyVerseIndex === 'number' && Number.isFinite(data.dailyVerseIndex)) {
+            currentDailyVerseIndex = Math.max(0, Math.floor(data.dailyVerseIndex)) % DAILY_VERSES.length;
+            renderDailyVerse(false);
+          }
+        }
       }, (err) => {
-        console.warn("Settings snapshot error:", err);
+        handleFirestoreError(err, OperationType.GET, settingsPath);
       });
+    }
+
+    async function saveDailyVersePreferenceToCloud() {
+      try {
+        localStorage.setItem(LOCAL_PREF_KEY, JSON.stringify({ dailyVerseIndex: currentDailyVerseIndex }));
+      } catch (_) {}
+
+      if (!cloudAvailable || !db || !currentUser) return;
+      const uid = currentUser.uid;
+      const settingsPath = `users/${uid}/settings/preferences`;
+      const settingsDocRef = doc(db, 'users', uid, 'settings', 'preferences');
+      try {
+        if (hasSettingsDoc) {
+          await updateDoc(settingsDocRef, {
+            dailyVerseIndex: currentDailyVerseIndex,
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          await setDoc(settingsDocRef, {
+            ownerId: uid,
+            dailyVerseIndex: currentDailyVerseIndex,
+            updatedAt: serverTimestamp()
+          });
+          hasSettingsDoc = true;
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, settingsPath);
+      }
     }
 
     window.openSettingsModal = function () {
       const modal = document.getElementById('settings-modal');
       const cloudStateEl = document.getElementById('settings-cloud-state');
+      const accountEmailEl = document.getElementById('settings-account-email');
 
       if (cloudStateEl) {
-        cloudStateEl.textContent = (cloudAvailable && currentUser)
-          ? '已連線雲端（自動跨裝置同步）'
-          : '目前為單機畫布模式（本次工作階段有效）';
+        if (cloudAvailable && currentUser) {
+          cloudStateEl.textContent = '已連線雲端（自動即時存檔）';
+          cloudStateEl.className = 'font-semibold text-[#24ef95] text-right';
+        } else if (cloudAvailable) {
+          cloudStateEl.textContent = '尚未登入 Google（目前存於本機）';
+          cloudStateEl.className = 'font-semibold text-[#e4f33b] text-right';
+        } else {
+          cloudStateEl.textContent = '單機本機模式';
+          cloudStateEl.className = 'font-semibold text-zinc-400 text-right';
+        }
       }
+      if (accountEmailEl) {
+        accountEmailEl.textContent = currentUser?.email || '尚未登入';
+      }
+
       modal.classList.remove('hidden');
       modal.classList.add('flex');
     };
@@ -1446,11 +1496,140 @@
       modal.classList.remove('flex');
     };
 
+    window.copyApiToken = async function () {
+      if (!currentUser) {
+        showToast("請先登入 Google 帳號以取得 API Bearer Token", "warning");
+        return;
+      }
+      try {
+        const token = await currentUser.getIdToken();
+        await navigator.clipboard.writeText(token);
+        showToast("已複製 Firebase ID Token（可用於 /api/prayers）", "success");
+      } catch {
+        showToast("無法存取剪貼簿，請再試一次", "error");
+      }
+    };
+
+    window.testCloudRestApi = async function () {
+      const statusEl = document.getElementById('api-test-status');
+      const outputEl = document.getElementById('api-test-output');
+      if (!currentUser) {
+        showToast("請先登入 Google 帳號再測試雲端 API", "warning");
+        return;
+      }
+      if (statusEl) statusEl.textContent = '呼叫中...';
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch('./api/prayers', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          if (statusEl) statusEl.textContent = '目前為純靜態網域（例如 GitHub Pages），由 Firebase SDK 直接同步雲端';
+          if (outputEl) outputEl.classList.add('hidden');
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        if (statusEl) statusEl.textContent = `成功：雲端共 ${data.count} 筆節點`;
+        if (outputEl) {
+          outputEl.textContent = JSON.stringify(data, null, 2);
+          outputEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `測試失敗：${err.message}`;
+      }
+    };
+
     // ==========================================
     // 5. Firestore 即時同步與節點資料操作
     // ==========================================
+    const ALLOWED_PATCH_FIELDS = new Set([
+      'parentId', 'title', 'content', 'reference', 'x', 'y', 'collapsed', 'answered'
+    ]);
+
     function getNodesCollectionRef(uid) {
-      return collection(db, 'artifacts', appId, 'users', uid, 'prayer_nodes');
+      return collection(db, 'users', uid, 'prayer_nodes');
+    }
+
+    function toFirestoreCreatePayload(node, uid) {
+      return {
+        id: String(node.id),
+        ownerId: uid,
+        parentId: node.parentId ? String(node.parentId) : null,
+        type: ['anxiety', 'gratitude', 'reflection', 'scripture'].includes(node.type) ? node.type : 'anxiety',
+        title: String(node.title || '').slice(0, 200),
+        content: String(node.content || '').slice(0, 5000),
+        reference: String(node.reference || '').slice(0, 200),
+        x: Number.isFinite(Number(node.x)) ? Math.round(Number(node.x) * 100) / 100 : 415,
+        y: Number.isFinite(Number(node.y)) ? Math.round(Number(node.y) * 100) / 100 : 0,
+        collapsed: Boolean(node.collapsed),
+        answered: Boolean(node.answered),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+    }
+
+    function sortNodesParentBeforeChild(nodesList) {
+      const byId = new Map(nodesList.map(n => [n.id, n]));
+      const ordered = [];
+      const visited = new Set();
+      function visit(n) {
+        if (!n || visited.has(n.id)) return;
+        if (n.parentId && byId.has(n.parentId)) {
+          visit(byId.get(n.parentId));
+        }
+        visited.add(n.id);
+        ordered.push(n);
+      }
+      for (const n of nodesList) visit(n);
+      return ordered;
+    }
+
+    async function createNodesInCloud(nodesList) {
+      if (!cloudAvailable || !db || !currentUser || !nodesList || nodesList.length === 0) return;
+      const uid = currentUser.uid;
+      const colPath = `users/${uid}/prayer_nodes`;
+      setSyncStatus('syncing', '儲存至雲端...');
+      try {
+        const batch = writeBatch(db);
+        const ordered = sortNodesParentBeforeChild(nodesList);
+        for (const node of ordered) {
+          const docRef = doc(db, 'users', uid, 'prayer_nodes', node.id);
+          batch.set(docRef, toFirestoreCreatePayload(node, uid));
+        }
+        await batch.commit();
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        setSyncStatus('error', '雲端儲存失敗');
+        handleFirestoreError(err, OperationType.CREATE, colPath);
+      }
+    }
+
+    async function createNodeAndSyncPositions(newNode, movedExistingNodes = []) {
+      if (!cloudAvailable || !db || !currentUser) return;
+      const uid = currentUser.uid;
+      const colPath = `users/${uid}/prayer_nodes`;
+      setSyncStatus('syncing', '儲存至雲端...');
+      try {
+        const batch = writeBatch(db);
+        const newDocRef = doc(db, 'users', uid, 'prayer_nodes', newNode.id);
+        batch.set(newDocRef, toFirestoreCreatePayload(newNode, uid));
+        for (const moved of movedExistingNodes) {
+          if (moved.id === newNode.id) continue;
+          const docRef = doc(db, 'users', uid, 'prayer_nodes', moved.id);
+          batch.update(docRef, {
+            x: Math.round(Number(moved.x) * 100) / 100,
+            y: Math.round(Number(moved.y) * 100) / 100,
+            updatedAt: serverTimestamp()
+          });
+        }
+        await batch.commit();
+        setSyncStatus('synced', '已同步至雲端');
+      } catch (err) {
+        setSyncStatus('error', '雲端儲存失敗');
+        handleFirestoreError(err, OperationType.WRITE, colPath);
+      }
     }
 
     function subscribeToPrayerNodes(uid) {
@@ -1458,10 +1637,25 @@
       if (unsubscribeNodes) unsubscribeNodes();
 
       setSyncStatus('syncing', '同步畫布中...');
-      const colRef = getNodesCollectionRef(uid);
+      const colPath = `users/${uid}/prayer_nodes`;
+      const q = query(getNodesCollectionRef(uid), where('ownerId', '==', uid));
 
-      unsubscribeNodes = onSnapshot(colRef, async (snapshot) => {
-        if (snapshot.empty && state.nodes.size === 0) {
+      unsubscribeNodes = onSnapshot(q, async (snapshot) => {
+        if (snapshot.empty) {
+          if (state.nodes.size > 0) {
+            await createNodesInCloud([...state.nodes.values()]);
+            return;
+          }
+          const localCached = loadNodesFromLocalStorage();
+          if (localCached && localCached.length > 0) {
+            state.nodes.clear();
+            for (const n of localCached) state.nodes.set(n.id, n);
+            snapAllRootsToOrbit(false);
+            await createNodesInCloud([...state.nodes.values()]);
+            syncBoardDOM();
+            fitAllNodes();
+            return;
+          }
           await seedInitialWorkflow();
           return;
         }
@@ -1471,8 +1665,8 @@
           const id = docSnap.id;
           incomingIds.add(id);
           if (state.draggingNodeIds.has(id)) return;
-          const data = docSnap.data();
-          state.nodes.set(id, { id, ...data });
+          const normalized = normalizeNodeForMemory(docSnap.data(), id);
+          state.nodes.set(id, normalized);
         });
 
         for (const existingId of [...state.nodes.keys()]) {
@@ -1482,58 +1676,74 @@
         }
 
         snapAllRootsToOrbit(true);
+        saveNodesToLocalStorage();
         setSyncStatus('synced', '已同步至雲端');
         syncBoardDOM();
       }, (error) => {
-        console.error("Firestore snapshot error:", error);
         setSyncStatus('error', '同步異常');
+        handleFirestoreError(error, OperationType.LIST, colPath);
       });
     }
 
-    async function saveNodeToCloud(node) {
-      if (!cloudAvailable || !db || !currentUser) return;
-      setSyncStatus('syncing', '儲存中...');
-      try {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', node.id);
-        await setDoc(docRef, node, { merge: true });
-        setSyncStatus('synced', '已同步至雲端');
-      } catch (err) {
-        console.error("Save node error:", err);
-        setSyncStatus('error', '儲存失敗');
-      }
-    }
-
     async function saveMultipleNodesToCloud(nodesList) {
+      saveNodesToLocalStorage();
       if (!cloudAvailable || !db || !currentUser || !nodesList || nodesList.length === 0) return;
+      const uid = currentUser.uid;
+      const colPath = `users/${uid}/prayer_nodes`;
       setSyncStatus('syncing', '儲存中...');
       try {
         const batch = writeBatch(db);
         for (const node of nodesList) {
-          const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', node.id);
-          batch.set(docRef, { x: node.x, y: node.y, updatedAt: Date.now() }, { merge: true });
+          const docRef = doc(db, 'users', uid, 'prayer_nodes', node.id);
+          batch.update(docRef, {
+            x: Math.round(Number(node.x) * 100) / 100,
+            y: Math.round(Number(node.y) * 100) / 100,
+            updatedAt: serverTimestamp()
+          });
         }
         await batch.commit();
         setSyncStatus('synced', '已同步至雲端');
       } catch (err) {
-        console.error("Batch save nodes error:", err);
         setSyncStatus('error', '儲存失敗');
+        handleFirestoreError(err, OperationType.UPDATE, colPath);
       }
     }
 
     window.updateNodeFields = async function (nodeId, fields, revealDelays = null, retractDelays = null) {
       const existing = state.nodes.get(nodeId);
       if (!existing) return;
-      Object.assign(existing, fields, { updatedAt: Date.now() });
+
+      const filteredFields = {};
+      for (const [k, v] of Object.entries(fields || {})) {
+        if (!ALLOWED_PATCH_FIELDS.has(k)) continue;
+        if (k === 'title') filteredFields[k] = String(v || '').slice(0, 200);
+        else if (k === 'content') filteredFields[k] = String(v || '').slice(0, 5000);
+        else if (k === 'reference') filteredFields[k] = String(v || '').slice(0, 200);
+        else if (k === 'x' || k === 'y') filteredFields[k] = Math.round(Number(v) * 100) / 100;
+        else if (k === 'collapsed' || k === 'answered') filteredFields[k] = Boolean(v);
+        else if (k === 'parentId') filteredFields[k] = v ? String(v) : null;
+      }
+
+      if (Object.keys(filteredFields).length === 0) {
+        syncBoardDOM(new Set(), revealDelays, retractDelays);
+        return;
+      }
+
+      Object.assign(existing, filteredFields, { updatedAt: Date.now() });
+      saveNodesToLocalStorage();
       syncBoardDOM(new Set(), revealDelays, retractDelays);
 
       if (!cloudAvailable || !db || !currentUser) return;
+      const uid = currentUser.uid;
+      const docPath = `users/${uid}/prayer_nodes/${nodeId}`;
       setSyncStatus('syncing', '儲存中...');
       try {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', nodeId);
-        await updateDoc(docRef, { ...fields, updatedAt: Date.now() });
+        const docRef = doc(db, 'users', uid, 'prayer_nodes', nodeId);
+        await updateDoc(docRef, { ...filteredFields, updatedAt: serverTimestamp() });
         setSyncStatus('synced', '已同步至雲端');
       } catch (err) {
-        console.error("Update error:", err);
+        setSyncStatus('error', '儲存失敗');
+        handleFirestoreError(err, OperationType.UPDATE, docPath);
       }
     };
 
@@ -1560,19 +1770,25 @@
       for (const id of toDelete) {
         state.nodes.delete(id);
       }
+      saveNodesToLocalStorage();
       syncBoardDOM();
       showToast("已移除節點與其子分支", "info");
 
       if (!cloudAvailable || !db || !currentUser) return;
+      const uid = currentUser.uid;
+      const colPath = `users/${uid}/prayer_nodes`;
       setSyncStatus('syncing', '移除中...');
       try {
+        const batch = writeBatch(db);
         for (const id of toDelete) {
-          const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'prayer_nodes', id);
-          await deleteDoc(docRef);
+          const docRef = doc(db, 'users', uid, 'prayer_nodes', id);
+          batch.delete(docRef);
         }
+        await batch.commit();
         setSyncStatus('synced', '已同步至雲端');
       } catch (err) {
-        console.error("Delete cascade error:", err);
+        setSyncStatus('error', '移除失敗');
+        handleFirestoreError(err, OperationType.DELETE, colPath);
       }
     }
 
@@ -1810,15 +2026,14 @@
         }
       ];
 
+      state.nodes.clear();
       for (const n of initialNodes) {
         state.nodes.set(n.id, n);
       }
 
       applyOrbitalRadialLayout();
-
-      for (const n of state.nodes.values()) {
-        await saveNodeToCloud(n);
-      }
+      saveNodesToLocalStorage();
+      await createNodesInCloud([...state.nodes.values()]);
 
       syncBoardDOM();
       fitAllNodes();
@@ -1935,7 +2150,7 @@
       let usedBuiltInFallback = false;
 
       try {
-        const response = await fetch('/api/ai/scripture', {
+        const response = await fetch('./api/ai/scripture', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1956,6 +2171,7 @@
         const existingChildren = getChildrenOf(nodeId);
         const totalAfterAdd = existingChildren.length + verses.length;
         const createdIds = [];
+        const createdNodes = [];
 
         for (let i = 0; i < verses.length; i++) {
           const v = verses[i];
@@ -1977,12 +2193,14 @@
           };
           state.nodes.set(newId, newNode);
           createdIds.push(newId);
-          await saveNodeToCloud(newNode);
+          createdNodes.push(newNode);
         }
 
+        saveNodesToLocalStorage();
         const revealDelays = new Map();
         createdIds.forEach((id, idx) => revealDelays.set(id, idx * 120));
         syncBoardDOM(new Set(), revealDelays);
+        await createNodesInCloud(createdNodes);
 
         showToast(`📜 已為您展開 ${verses.length} 則聖經應許分支！`, "success");
       } finally {
@@ -2148,6 +2366,12 @@
     ];
 
     let currentDailyVerseIndex = (() => {
+      try {
+        const savedPref = JSON.parse(localStorage.getItem(LOCAL_PREF_KEY) || 'null');
+        if (savedPref && typeof savedPref.dailyVerseIndex === 'number') {
+          return Math.abs(Math.floor(savedPref.dailyVerseIndex)) % DAILY_VERSES.length;
+        }
+      } catch (_) {}
       const now = new Date();
       const start = new Date(now.getFullYear(), 0, 0);
       const dayOfYear = Math.floor((now - start) / 86400000);
@@ -2184,6 +2408,7 @@
     window.cycleDailyVerse = function () {
       currentDailyVerseIndex = (currentDailyVerseIndex + 1) % DAILY_VERSES.length;
       renderDailyVerse(true);
+      saveDailyVersePreferenceToCloud();
     };
 
     const orbitMotion = {
@@ -2593,15 +2818,21 @@
         }
       }
 
+      const updatedNodes = [];
       for (const node of state.nodes.values()) {
         if (isRootNode(node) || countDescendants(node.id) > 0) {
           if (!shouldCollapse && isRootNode(node)) {
             ensureChildrenClearMotherCard(node);
           }
-          node.collapsed = shouldCollapse;
-          saveNodeToCloud(node);
+          if (node.collapsed !== shouldCollapse) {
+            node.collapsed = shouldCollapse;
+            node.updatedAt = Date.now();
+            updatedNodes.push(node);
+          }
         }
       }
+
+      saveNodesToLocalStorage();
 
       let revealDelays = null;
       if (!shouldCollapse && previouslyHiddenIds.size > 0) {
@@ -2622,6 +2853,23 @@
 
       syncBoardDOM(new Set(), revealDelays, retractDelays);
       showToast(shouldCollapse ? "已收合所有分支" : "已展開所有分支", "info");
+
+      if (cloudAvailable && db && currentUser && updatedNodes.length > 0) {
+        const uid = currentUser.uid;
+        const colPath = `users/${uid}/prayer_nodes`;
+        try {
+          const batch = writeBatch(db);
+          for (const node of updatedNodes) {
+            batch.update(doc(db, 'users', uid, 'prayer_nodes', node.id), {
+              collapsed: shouldCollapse,
+              updatedAt: serverTimestamp()
+            });
+          }
+          await batch.commit();
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, colPath);
+        }
+      }
     };
 
     window.toggleAllBranchesSmart = function () {
@@ -2634,9 +2882,10 @@
       const parent = state.nodes.get(parentId);
       if (!parent) return;
 
-      if (parent.collapsed) {
+      const wasParentCollapsed = Boolean(parent.collapsed);
+      if (wasParentCollapsed) {
         parent.collapsed = false;
-        await saveNodeToCloud(parent);
+        parent.updatedAt = Date.now();
       }
 
       const siblings = getChildrenOf(parentId);
@@ -2665,9 +2914,27 @@
 
       state.nodes.set(newId, newNode);
       state.selectedNodeId = newId;
+      saveNodesToLocalStorage();
       const revealDelays = new Map([[newId, 0]]);
       syncBoardDOM(new Set(), revealDelays);
-      await saveNodeToCloud(newNode);
+
+      if (cloudAvailable && db && currentUser) {
+        const uid = currentUser.uid;
+        const colPath = `users/${uid}/prayer_nodes`;
+        try {
+          const batch = writeBatch(db);
+          if (wasParentCollapsed) {
+            batch.update(doc(db, 'users', uid, 'prayer_nodes', parent.id), {
+              collapsed: false,
+              updatedAt: serverTimestamp()
+            });
+          }
+          batch.set(doc(db, 'users', uid, 'prayer_nodes', newId), toFirestoreCreatePayload(newNode, uid));
+          await batch.commit();
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, colPath);
+        }
+      }
 
       setTimeout(() => {
         const el = state.nodeElements.get(newId);
@@ -2680,10 +2947,7 @@
       applyOrbitalRadialLayout();
       syncBoardDOM();
       fitAllNodes();
-
-      for (const node of state.nodes.values()) {
-        saveNodeToCloud(node);
-      }
+      await saveMultipleNodesToCloud([...state.nodes.values()]);
       showToast("🪄 已完成圓形軌道與放射狀自動排版", "success");
     };
 
@@ -3964,21 +4228,24 @@
 
       forceCreateAsOrbitRoot = false;
       window.closeNodeModal();
+      const existingSnapshot = [...state.nodes.values()];
       state.nodes.set(newId, newNode);
       state.selectedNodeId = newId;
 
       if (createdFromOrbitBtn) {
         applyOrbitalRadialLayout();
       } else if (!parentId) {
-        snapAllRootsToOrbit(true);
+        snapAllRootsToOrbit(false);
       }
+
+      saveNodesToLocalStorage();
 
       if (parentId) {
         syncBoardDOM(new Set(), new Map([[newId, 0]]));
       } else {
         syncBoardDOM(new Set([newId]));
       }
-      await saveNodeToCloud(newNode);
+      await createNodeAndSyncPositions(newNode, createdFromOrbitBtn ? existingSnapshot : []);
       showToast("已新增禱告節點至軌道！", "success");
 
       if (autoAI) {
