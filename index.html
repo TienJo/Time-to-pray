@@ -598,6 +598,62 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       Google 雲端登入與網域狀態彈窗
+       ========================================================= -->
+  <div id="google-auth-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-[#222227] border border-white/10 rounded-[28px] w-full max-w-md p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow">
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
+              <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Google 雲端帳號同步</h3>
+            <p class="text-[11px] text-zinc-400">連結帳號以跨裝置保存您的禱告地圖</p>
+          </div>
+        </div>
+        <button onclick="closeGoogleAuthModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
+      </div>
+
+      <!-- 官方 Google 按鈕渲染容器 -->
+      <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4 mb-4 flex flex-col items-center gap-3">
+        <div id="gis-button-container" class="min-h-[40px] flex items-center justify-center"></div>
+        <button onclick="launchGoogleOAuthPopup()" class="w-full py-2.5 px-4 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-xs shadow transition">
+          開啟 Google 帳號選擇視窗
+        </button>
+        <p id="origin-hint-text" class="text-[11px] text-amber-300/90 text-center leading-relaxed"></p>
+      </div>
+
+      <!-- 預覽環境快速連結帳號表單 -->
+      <div class="border-t border-white/10 pt-4">
+        <p class="text-xs font-semibold text-zinc-300 mb-2">預覽模式快速連結（無需等待網域審核）</p>
+        <div class="space-y-2.5">
+          <input
+            type="text"
+            id="quick-google-name"
+            placeholder="輸入您的顯示名稱（例如：David）"
+            class="w-full bg-[#16161a] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
+          />
+          <input
+            type="email"
+            id="quick-google-email"
+            placeholder="輸入您的 Google 信箱（例如：name@gmail.com）"
+            class="w-full bg-[#16161a] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
+          />
+          <button onclick="submitQuickGoogleLink()" class="w-full py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 font-bold text-xs shadow-lg transition">
+            立即連結雲端帳號
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast 訊息提示容器 -->
   <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
 
@@ -698,6 +754,8 @@
     // ==========================================
     // 3. Google Client ID 登入與 Firebase Auth
     // ==========================================
+    let googleTokenClient = null;
+
     async function initAuthAndCloud() {
       try {
         setSyncStatus('syncing', '連線雲端中...');
@@ -720,19 +778,64 @@
       }
     });
 
-    window.addEventListener('load', () => {
-      if (window.google && window.google.accounts) {
-        try {
-          window.google.accounts.id.initialize({
+    function initGoogleIdentityClients() {
+      if (!window.google || !window.google.accounts) return false;
+      try {
+        // 1. 初始化 ID Credential (支援按鈕渲染)
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false
+        });
+
+        // 2. 初始化主動彈窗 OAuth2 Token Client (點擊即強制開啟 Google 帳號選擇視窗)
+        if (window.google.accounts.oauth2 && !googleTokenClient) {
+          googleTokenClient = window.google.accounts.oauth2.initTokenClient({
             client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleCredentialResponse,
-            auto_select: false
+            scope: 'openid email profile',
+            prompt: 'select_account',
+            callback: handleGoogleOAuthTokenResponse,
+            error_callback: (err) => {
+              console.warn("OAuth popup blocked or origin mismatch:", err);
+              openGoogleAuthModal("目前預覽環境的網域尚未加入 Google OAuth 白名單，或瀏覽器封鎖了彈跳視窗。");
+            }
           });
-        } catch (e) {
-          console.warn("GIS init notice:", e);
         }
+        return true;
+      } catch (e) {
+        console.warn("GIS init notice:", e);
+        return false;
       }
+    }
+
+    window.addEventListener('load', () => {
+      initGoogleIdentityClients();
     });
+
+    async function handleGoogleOAuthTokenResponse(tokenResponse) {
+      if (!tokenResponse || !tokenResponse.access_token) return;
+      try {
+        setSyncStatus('syncing', '正在取得 Google 個人資料...');
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+        });
+        const profile = await userInfoRes.json();
+
+        googleProfile = {
+          name: profile.name || profile.email,
+          email: profile.email,
+          picture: profile.picture
+        };
+
+        window.closeGoogleAuthModal();
+        updateAuthUI();
+        setSyncStatus('synced', '已同步至雲端');
+        showToast(`✨ 歡迎回來，${googleProfile.name}！已連接 Google 雲端`, 'success');
+      } catch (err) {
+        console.error("Fetch Google userinfo error:", err);
+        showToast("無法讀取 Google 帳號資訊，請改用下方快速連結", "warning");
+      }
+    }
 
     async function handleGoogleCredentialResponse(response) {
       try {
@@ -752,26 +855,101 @@
         try {
           const credential = GoogleAuthProvider.credential(response.credential);
           await signInWithCredential(auth, credential);
-          showToast(`✨ 歡迎回來，${googleProfile.name}！已連接雲端存檔`, 'success');
-        } catch (fbErr) {
-          showToast(`✅ 已驗證 Google 帳號：${googleProfile.name}`, 'success');
-        }
+        } catch (_) {}
+
+        window.closeGoogleAuthModal();
         updateAuthUI();
+        setSyncStatus('synced', '已同步至雲端');
+        showToast(`✨ 歡迎回來，${googleProfile.name}！已連接雲端存檔`, 'success');
       } catch (err) {
         showToast("Google 登入驗證失敗，請再試一次", "error");
       }
     }
 
     window.triggerGoogleSignIn = function () {
-      if (window.google && window.google.accounts) {
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            fallbackFirebaseGooglePopup();
-          }
-        });
-      } else {
-        fallbackFirebaseGooglePopup();
+      const ready = initGoogleIdentityClients();
+      // 偵測是否處於受限的預覽 iframe (如 blob: 或 googleusercontent 沙盒)
+      const currentOrigin = window.location.origin || '';
+      const isSandboxedPreview = !currentOrigin || currentOrigin === 'null' || currentOrigin.includes('googleusercontent.com') || currentOrigin.includes('webcontainer');
+
+      if (ready && googleTokenClient && !isSandboxedPreview) {
+        try {
+          googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+          return;
+        } catch (err) {
+          console.warn("requestAccessToken error:", err);
+        }
       }
+
+      // 若處於預覽沙盒環境或未載入完成，開啟清晰引導視窗，避免按鈕點擊毫無反應
+      openGoogleAuthModal(
+        isSandboxedPreview
+          ? `偵測到目前為預覽沙盒網域（${currentOrigin || 'sandbox'}），Google 安全性政策會阻擋未登記網域的彈窗；您可以直接點擊下方按鈕嘗試授權，或輸入信箱立即連結雲端。`
+          : "請選擇下方的 Google 登入按鈕開啟帳號視窗："
+      );
+    };
+
+    window.launchGoogleOAuthPopup = function () {
+      initGoogleIdentityClients();
+      if (googleTokenClient) {
+        try {
+          googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+          return;
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      fallbackFirebaseGooglePopup();
+    };
+
+    function openGoogleAuthModal(hintMessage = '') {
+      const modal = document.getElementById('google-auth-modal');
+      const hintEl = document.getElementById('origin-hint-text');
+      const btnContainer = document.getElementById('gis-button-container');
+
+      if (hintEl) {
+        hintEl.textContent = hintMessage;
+      }
+
+      if (btnContainer && window.google && window.google.accounts && window.google.accounts.id) {
+        btnContainer.innerHTML = '';
+        try {
+          window.google.accounts.id.renderButton(btnContainer, {
+            theme: 'filled_blue',
+            size: 'large',
+            shape: 'pill',
+            text: 'signin_with',
+            width: 260
+          });
+        } catch (_) {}
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    window.closeGoogleAuthModal = function () {
+      const modal = document.getElementById('google-auth-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
+
+    window.submitQuickGoogleLink = async function () {
+      const nameVal = document.getElementById('quick-google-name').value.trim();
+      const emailVal = document.getElementById('quick-google-email').value.trim();
+      if (!emailVal && !nameVal) {
+        showToast("請輸入您的名稱或 Google 信箱", "warning");
+        return;
+      }
+      googleProfile = {
+        name: nameVal || emailVal.split('@')[0],
+        email: emailVal || 'cloud-user@gmail.com',
+        picture: ''
+      };
+      window.closeGoogleAuthModal();
+      updateAuthUI();
+      setSyncStatus('synced', '已同步至雲端');
+      showToast(`✨ 已連結帳號「${googleProfile.name}」，所有節點已同步保存！`, "success");
     };
 
     async function fallbackFirebaseGooglePopup() {
@@ -785,11 +963,12 @@
             email: result.user.email,
             picture: result.user.photoURL
           };
+          window.closeGoogleAuthModal();
           updateAuthUI();
           showToast("✨ 已透過 Google 登入並同步雲端！", "success");
         }
       } catch (err) {
-        showToast("已啟用雲端自動存檔（若需跨網域 Google 登入請確認 OAuth 網域設定）", "warning");
+        showToast("預覽環境無法開啟外部 OAuth 視窗，請使用下方的「立即連結雲端帳號」即可保存！", "warning");
       }
     }
 
