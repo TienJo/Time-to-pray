@@ -1,0 +1,8 @@
+{
+  "name": "Time to pray",
+  "description": "暗黑心智畫布與 AI 聖經查考 — 無限禱告心智圖畫布",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

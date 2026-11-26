@@ -3,26 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Pryme 禱告牆 — 暗黑心智畫布與 AI 聖經查考</title>
+  <title>Time to pray — 軌道禱告心智畫布</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <!-- Google Fonts: Plus Jakarta Sans & Noto Sans TC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <!-- Google Identity Services (Google Client ID 登入) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     :root {
-      --bg-canvas: #141417;
-      --bg-panel: rgba(33, 33, 38, 0.94);
-      --bg-topbar: rgba(26, 26, 30, 0.95);
-      --dot-color: rgba(255, 255, 255, 0.13);
+      --bg-canvas: #111113;
+      --bg-panel: rgba(24, 24, 28, 0.94);
+      --bg-topbar: rgba(17, 17, 19, 0.88);
+      --cream-center: #fdfce7;
       --accent-mint: #24ef95;
       --accent-purple: #a58cf5;
       --accent-lime: #e4f33b;
       --accent-danger: #ef4444;
+    }
+
+    @property --node-x {
+      syntax: '<length>';
+      inherits: false;
+      initial-value: 0px;
+    }
+
+    @property --node-y {
+      syntax: '<length>';
+      inherits: false;
+      initial-value: 0px;
     }
 
     * {
@@ -31,7 +43,7 @@
     }
 
     body {
-      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -41,7 +53,7 @@
       touch-action: none;
     }
 
-    /* 深邃炭黑點陣無限畫布 */
+    /* 深邃極簡炭黑無限畫布 */
     #viewport {
       width: 100vw;
       height: 100vh;
@@ -50,9 +62,7 @@
       cursor: grab;
       background-color: var(--bg-canvas);
       background-image:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.45) 100%),
-        radial-gradient(var(--dot-color) 1.25px, transparent 1.25px);
-      background-size: 100% 100%, 24px 24px;
+        radial-gradient(circle at 50% 50%, rgba(253, 252, 231, 0.03) 0%, rgba(0, 0, 0, 0.42) 100%);
     }
 
     #viewport.is-panning {
@@ -67,7 +77,7 @@
       will-change: transform;
     }
 
-    /* SVG 虛線節點連線層 */
+    /* SVG 軌道與節點連線層 */
     #connections-layer {
       position: absolute;
       top: -12000px;
@@ -81,55 +91,365 @@
     .flow-connector {
       fill: none;
       stroke-linecap: round;
-      stroke-dasharray: 4 5;
-      stroke-width: 2.2;
+      stroke-width: 1.8;
+      stroke: #71717a;
     }
 
-    /* 純白圓角節點卡片 (無閃爍增量渲染) */
-    .flow-node {
+    /* 中央每日一句經文暖米白圓盤 */
+    #daily-verse-core {
       position: absolute;
-      width: 300px;
-      background: #ffffff;
-      color: #18181b;
-      border-radius: 22px;
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
-      cursor: grab;
+      left: -206px;
+      top: -206px;
+      width: 412px;
+      height: 412px;
+      border-radius: 9999px;
+      background-color: var(--cream-center);
+      color: #141417;
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.14);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 46px 42px 34px;
+      text-align: center;
+      z-index: 12;
+      pointer-events: auto;
+    }
+
+    .daily-verse-text {
+      text-wrap: balance;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .daily-verse-ring-accent {
+      position: absolute;
+      right: 48px;
+      bottom: 84px;
+      width: 30px;
+      height: 30px;
+      border-radius: 9999px;
+      border: 1.5px solid #2e7d6b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.22s ease;
+    }
+    .daily-verse-ring-accent::after {
+      content: '';
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      border: 2px solid #e85454;
+    }
+    .daily-verse-ring-accent:hover {
+      transform: scale(1.12);
+    }
+
+    /* 軌道上的圓形 + 新增禱告按鈕 */
+    #orbit-add-btn {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border-radius: 9999px;
+      background: #141417;
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      padding: 5px;
+      cursor: pointer;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #orbit-add-btn .orbit-add-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 9999px;
+      background: #232329;
+      color: #fdfce7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    #orbit-add-btn:hover {
+      transform: scale(1.12);
+      border-color: #fdfce7;
+      box-shadow: 0 16px 38px rgba(253, 252, 231, 0.16);
+    }
+    #orbit-add-btn:hover .orbit-add-inner {
+      background: #fdfce7;
+      color: #141417;
+    }
+    #orbit-add-btn .orbit-add-tooltip {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-2px);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: #141417;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      color: #fdfce7;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    #orbit-add-btn:hover .orbit-add-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* 軌道母集圓形徽章節點（對齊參考圖樣式） */
+    .flow-node.is-orbital-root {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 76px;
+      height: 76px;
+      border-radius: 9999px;
+      background: #111113;
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      padding: 5px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+      cursor: pointer;
       touch-action: none;
-      transition: box-shadow 0.18s ease, opacity 0.2s ease;
-      will-change: left, top;
+      z-index: 28;
+      transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0);
+      backface-visibility: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      will-change: transform;
     }
-
-    .flow-node:hover {
-      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.68), 0 0 0 1.5px rgba(255, 255, 255, 0.25);
+    .flow-node.is-orbital-root:hover {
+      border-color: #fdfce7;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.8), 0 0 0 3px rgba(253, 252, 231, 0.16);
+      z-index: 40;
     }
-
-    .flow-node.is-dragging {
+    .flow-node.is-orbital-root.is-selected {
+      z-index: 45;
+      border-color: #fdfce7;
+      box-shadow: 0 20px 46px rgba(0, 0, 0, 0.85), 0 0 0 4px rgba(253, 252, 231, 0.28);
+    }
+    .flow-node.is-orbital-root.is-dragging {
       cursor: grabbing;
       z-index: 60 !important;
-      box-shadow: 0 26px 56px rgba(0, 0, 0, 0.8), 0 0 0 2.5px #24ef95;
+      border-color: #24ef95;
+      box-shadow: 0 24px 52px rgba(0, 0, 0, 0.88), 0 0 0 3px rgba(36, 239, 149, 0.35);
+      transition: none !important;
+    }
+    .orbital-medallion-core {
+      width: 100%;
+      height: 100%;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .flow-node.is-orbital-root:hover .orbital-medallion-core {
+      transform: scale(1.05);
+    }
+
+    .orbital-label-pill {
+      position: absolute;
+      top: 50%;
+      transform: translate3d(0, -50%, 0);
+      backface-visibility: hidden;
+      background: #141417;
+      border: 1.25px solid rgba(255, 255, 255, 0.78);
+      border-radius: 9999px;
+      padding: 7px 14px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+      transition: border-color 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
+    }
+    .flow-node.is-orbital-root:hover .orbital-label-pill,
+    .flow-node.is-orbital-root.is-selected .orbital-label-pill {
+      border-color: #fdfce7;
+      background: #1a1a1f;
+    }
+    .flow-node.is-orbital-root.is-root-open {
+      z-index: 36;
+    }
+    .flow-node.is-orbital-root.is-root-open .orbital-label-pill {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .orbital-label-pill.side-right {
+      left: calc(100% + 12px);
+    }
+    .orbital-label-pill.side-left {
+      right: calc(100% + 12px);
+    }
+
+    @keyframes rootCardPopIn {
+      from {
+        opacity: 0;
+        transform: translate3d(0, -50%, 0) scale(0.94);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, -50%, 0) scale(1);
+      }
+    }
+
+    /* 母集點開後直接顯示在圓點旁邊的卡片 */
+    .orbital-root-card {
+      position: absolute;
+      top: 50%;
+      transform: translate3d(0, -50%, 0);
+      width: 288px;
+      background: #faf9f2;
+      color: #18181b;
+      border-radius: 20px;
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.68), 0 0 0 1.5px rgba(253, 252, 231, 0.35);
+      cursor: grab;
+      backface-visibility: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+      display: none;
+      z-index: 38;
+    }
+    .flow-node.is-orbital-root.is-root-open .orbital-root-card {
+      display: block;
+      animation: rootCardPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .flow-node.is-orbital-root.is-dragging .orbital-root-card {
+      cursor: grabbing;
+      box-shadow: 0 26px 58px rgba(0, 0, 0, 0.82), 0 0 0 2px #24ef95;
+    }
+    .orbital-root-card.card-side-left {
+      right: calc(100% + 16px);
+      left: auto;
+    }
+    .orbital-root-card.card-side-right {
+      left: calc(100% + 16px);
+      right: auto;
+    }
+
+    .card-scroll-text {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .orbital-delete-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 9999px;
+      background: #1c1c21;
+      border: 1.25px solid rgba(255, 255, 255, 0.55);
+      color: #e4e4e7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      cursor: pointer;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.16s ease, transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+      z-index: 35;
+    }
+    .flow-node.is-orbital-root:hover .orbital-delete-btn,
+    .flow-node.is-orbital-root.is-selected .orbital-delete-btn {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .orbital-delete-btn:hover {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+
+    /* 子分支卡片樣式 (溫暖簡潔卡片，支援直接刪除) */
+    .flow-node.is-child-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 292px;
+      background: #faf9f2;
+      color: #18181b;
+      border-radius: 20px;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(255, 255, 255, 0.14);
+      cursor: grab;
+      touch-action: none;
+      transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0);
+      backface-visibility: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+      transition: box-shadow 0.18s ease, opacity 0.2s ease;
+      will-change: transform;
+      z-index: 22;
+    }
+
+    .flow-node.is-child-card:hover {
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 0 1.5px rgba(253, 252, 231, 0.45);
+    }
+
+    .flow-node.is-child-card.is-dragging {
+      cursor: grabbing;
+      z-index: 60 !important;
+      box-shadow: 0 26px 56px rgba(0, 0, 0, 0.82), 0 0 0 2.5px #24ef95;
       transition: none !important;
     }
 
-    .flow-node.is-subtree-dragging {
+    .flow-node.is-child-card.is-subtree-dragging {
       z-index: 55 !important;
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.7), 0 0 0 1.5px rgba(36, 239, 149, 0.5);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.72), 0 0 0 1.5px rgba(36, 239, 149, 0.5);
       transition: none !important;
     }
 
-    .flow-node.is-selected {
+    .flow-node.is-child-card.is-selected {
       z-index: 45;
-      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 0 2.5px #a58cf5;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75), 0 0 0 2.5px #fdfce7;
+    }
+
+    .child-delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 26px;
+      height: 26px;
+      border-radius: 9999px;
+      background: rgba(24, 24, 27, 0.06);
+      color: #71717a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+      z-index: 20;
+    }
+    .child-delete-btn:hover {
+      background: #ef4444;
+      color: #ffffff;
     }
 
     /* 僅在第一次建立時播放一次微幅出現動畫，絕不重複觸發 */
     @keyframes nodeAppear {
       from {
         opacity: 0;
-        transform: scale(0.95);
+        transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0) scale(0.95);
       }
       to {
         opacity: 1;
-        transform: scale(1);
+        transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0) scale(1);
       }
     }
 
@@ -137,16 +457,155 @@
       animation: nodeAppear 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    /* 上下連線端口小圓點 */
+    @keyframes nodeRadialScatter {
+      0% {
+        opacity: 0;
+        transform: translate3d(calc(var(--node-x, 0px) + var(--scatter-x, 0px)), calc(var(--node-y, 0px) + var(--scatter-y, 0px)), 0) scale(0.72);
+      }
+      55% {
+        opacity: var(--node-target-opacity, 1);
+      }
+      100% {
+        opacity: var(--node-target-opacity, 1);
+        transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0) scale(1);
+      }
+    }
+
+    .node-cascade-reveal {
+      animation-name: nodeRadialScatter;
+      animation-duration: 0.86s;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+      will-change: transform, opacity;
+    }
+
+    @keyframes nodeRadialRetract {
+      0% {
+        opacity: var(--node-target-opacity, 1);
+        transform: translate3d(var(--node-x, 0px), var(--node-y, 0px), 0) scale(1);
+      }
+      45% {
+        opacity: var(--node-target-opacity, 1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(calc(var(--node-x, 0px) + var(--scatter-x, 0px)), calc(var(--node-y, 0px) + var(--scatter-y, 0px)), 0) scale(0.72);
+      }
+    }
+
+    .node-cascade-retract {
+      animation-name: nodeRadialRetract;
+      animation-duration: 0.82s;
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+
+    @keyframes connectorShootOut {
+      0% {
+        opacity: 0;
+        stroke-dashoffset: 100;
+      }
+      22% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 1;
+        stroke-dashoffset: 0;
+      }
+    }
+
+    .connector-path-reveal {
+      stroke-dasharray: 100;
+      animation-name: connectorShootOut;
+      animation-duration: 0.78s;
+      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+    }
+
+    @keyframes connectorRetractIn {
+      0% {
+        opacity: 1;
+        stroke-dashoffset: 0;
+      }
+      78% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        stroke-dashoffset: 100;
+      }
+    }
+
+    .connector-path-retract {
+      stroke-dasharray: 100;
+      animation-name: connectorRetractIn;
+      animation-duration: 0.74s;
+      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+    }
+
+    @keyframes connectorDotReveal {
+      0% {
+        opacity: 0;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .connector-dot-reveal {
+      animation-name: connectorDotReveal;
+      animation-duration: 0.48s;
+      animation-timing-function: ease-out;
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+    }
+
+    @keyframes connectorDotRetract {
+      0% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    .connector-dot-retract {
+      animation-name: connectorDotRetract;
+      animation-duration: 0.42s;
+      animation-timing-function: ease-in;
+      animation-fill-mode: both;
+      animation-delay: var(--reveal-delay, 0ms);
+    }
+
+    /* 軌道同心圓環樣式（對齊參考圖細緻白框） */
+    .orbit-ring-main {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.52);
+      stroke-width: 1.3;
+    }
+
+    .orbit-ring-outer {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.28);
+      stroke-width: 1.1;
+    }
+
+    .orbit-ring-halo {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 1;
+    }
+
+    /* 改由 360° 放射狀連線端點呈現，隱藏固定上下端口 */
     .node-port {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 10px;
-      height: 10px;
-      border-radius: 9999px;
-      border: 2px solid #141417;
-      z-index: 15;
+      display: none;
     }
     .node-port-top { top: -5px; }
     .node-port-bottom { bottom: -5px; }
@@ -223,304 +682,140 @@
 <body>
 
   <!-- =========================================================
-       頂部導覽列
+       極簡頂部導覽列（呼應圓形軌道極簡美學）
        ========================================================= -->
-  <header class="fixed top-0 left-0 right-0 h-16 z-50 bg-[#1a1a1e]/95 backdrop-blur-md border-b border-white/[0.07] px-4 lg:px-6 flex items-center justify-between gap-3">
-    <!-- 左側 Brand Logo -->
-    <div class="flex items-center gap-3">
-      <!-- 手機版左側面板開關 -->
-      <button onclick="toggleMobileDrawer('left')" class="lg:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm" title="開啟工具箱">
-        ☰
-      </button>
-
-      <div class="w-9 h-9 rounded-xl bg-white text-zinc-950 flex items-center justify-center font-black text-lg shadow">
-        ✝
+  <header class="fixed top-0 left-0 right-0 h-16 z-50 bg-[#111113]/85 backdrop-blur-md px-5 lg:px-8 flex items-center justify-between gap-4">
+    <!-- 左側 Brand -->
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div class="w-9 h-9 rounded-full bg-[#e85454] border-[1.5px] border-white/85 p-0.5 flex items-center justify-center shadow">
+        <div class="w-full h-full rounded-full bg-[#fdfce7] text-zinc-950 flex items-center justify-center font-black text-sm">
+          ✝
+        </div>
       </div>
-      <div>
-        <div class="font-bold text-sm sm:text-base tracking-tight text-white leading-none">Pryme 禱告牆</div>
-        <div class="text-[10px] text-zinc-400 mt-0.5 hidden sm:block">Infinite Prayer & Scripture Mindmap</div>
+      <div class="px-4 py-1.5 rounded-full bg-[#fdfce7] text-zinc-950 font-bold text-xs sm:text-sm tracking-tight whitespace-nowrap shrink-0">
+        Time to pray
       </div>
     </div>
 
-    <!-- 中央分頁篩選導覽 -->
-    <nav class="hidden xl:flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-full border border-white/[0.06]">
-      <button onclick="setFilter('all')" id="nav-filter-all" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-zinc-950 shadow transition">
-        <span>✦</span><span>全部節點</span>
+    <!-- 中央類型篩選列 -->
+    <nav class="hidden lg:flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-full border border-white/15">
+      <button onclick="setFilter('all')" id="nav-filter-all" class="nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#fdfce7] text-zinc-950 whitespace-nowrap shrink-0 transition">
+        全部
       </button>
-      <button onclick="setFilter('anxiety')" id="nav-filter-anxiety" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
-        <span>🔥</span><span>焦慮重擔</span>
+      <button onclick="setFilter('anxiety')" id="nav-filter-anxiety" class="nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white whitespace-nowrap shrink-0 transition">
+        焦慮重擔
       </button>
-      <button onclick="setFilter('gratitude')" id="nav-filter-gratitude" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
-        <span>🌸</span><span>感恩獻上</span>
+      <button onclick="setFilter('gratitude')" id="nav-filter-gratitude" class="nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white whitespace-nowrap shrink-0 transition">
+        感恩獻上
       </button>
-      <button onclick="setFilter('scripture')" id="nav-filter-scripture" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
-        <span>📜</span><span>聖經應許</span>
+      <button onclick="setFilter('scripture')" id="nav-filter-scripture" class="nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white whitespace-nowrap shrink-0 transition">
+        聖經應許
       </button>
-      <button onclick="setFilter('reflection')" id="nav-filter-reflection" class="nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition">
-        <span>✍️</span><span>靈修心得</span>
+      <button onclick="setFilter('reflection')" id="nav-filter-reflection" class="nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white whitespace-nowrap shrink-0 transition">
+        靈修心得
       </button>
     </nav>
 
-    <!-- 右側雲端同步狀態、API 設定按鈕與 Google Client ID 登入 -->
-    <div class="flex items-center gap-2">
-      <!-- 雲端同步指示膠囊 -->
-      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs text-zinc-300">
-        <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        <span id="sync-text">初始化中</span>
-      </div>
-
-      <!-- API Key 與系統設定按鈕 -->
-      <button onclick="openSettingsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.07] hover:bg-white/[0.14] border border-white/10 text-xs font-medium text-zinc-200 transition" title="設定 Gemini API Key 並儲存至雲端">
-        <span>⚙️</span>
-        <span class="hidden sm:inline">設定</span>
-        <span id="api-key-badge" class="w-2 h-2 rounded-full bg-zinc-500"></span>
+    <!-- 右側動作與帳號 -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button onclick="openSettingsModal()" class="px-3.5 py-1.5 rounded-full bg-transparent hover:bg-white/10 border border-white/40 text-xs font-medium text-zinc-100 whitespace-nowrap shrink-0 transition" title="雲端同步與設定">
+        設定
       </button>
 
-      <!-- Google 帳號登入區塊 -->
       <div id="auth-container" class="flex items-center">
-        <button onclick="triggerGoogleSignIn()" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-semibold text-xs shadow-md transition">
-          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
-            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
-            <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
-            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
-          </svg>
-          <span>Google 雲端登入</span>
+        <button onclick="triggerGoogleSignIn()" class="flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/70 hover:bg-[#fdfce7] hover:text-zinc-950 text-white font-semibold text-xs whitespace-nowrap shrink-0 transition">
+          <span>Google 登入</span>
         </button>
       </div>
-
-      <!-- 手機版右側新增面板開關 -->
-      <button onclick="toggleMobileDrawer('right')" class="lg:hidden w-9 h-9 rounded-full bg-[#24ef95] text-zinc-950 font-bold flex items-center justify-center text-base shadow" title="新增禱告卡片">
-        ＋
-      </button>
     </div>
   </header>
 
   <!-- =========================================================
-       中央無限點陣畫布
+       中央無限軌道畫布（最中央每日一句經文 + 軌道上圓形 + 按鈕）
        ========================================================= -->
   <main id="viewport">
     <div id="canvas-world">
-      <!-- 虛線節點連線圖層 -->
+      <!-- 同心圓軌道與節點連線圖層 -->
       <svg id="connections-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <!-- 最中央：每日一句經文暖米白圓盤 -->
+      <section id="daily-verse-core" onpointerdown="event.stopPropagation()">
+        <div id="daily-verse-date" class="text-[11px] font-semibold tracking-widest text-zinc-500">
+          今日經文
+        </div>
+
+        <p id="daily-verse-quote" class="daily-verse-text text-[22px] sm:text-[24px] font-bold leading-[1.42] tracking-tight text-zinc-950 px-3">
+          「應當一無掛慮，只要凡事藉著禱告、祈求，和感謝，將你們所要的告訴神。」
+        </p>
+
+        <button
+          type="button"
+          onclick="cycleDailyVerse()"
+          class="daily-verse-ring-accent"
+          title="切換下一句今日經文"
+          aria-label="切換下一句今日經文"
+        ></button>
+
+        <button
+          type="button"
+          id="daily-verse-ref-btn"
+          onclick="cycleDailyVerse()"
+          class="px-4 py-1.5 rounded-full border-[1.5px] border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-[#fdfce7] text-xs font-semibold tracking-wide transition whitespace-nowrap"
+          title="點擊切換每日經文"
+        >
+          腓立比書 4:6
+        </button>
+      </section>
+
+      <!-- 軌道上的小圓形 + 按鈕（新增禱告卡片） -->
+      <button
+        type="button"
+        id="orbit-add-btn"
+        onpointerdown="event.stopPropagation()"
+        onclick="openOrbitCreateModal()"
+        aria-label="新增禱告卡片"
+      >
+        <span class="orbit-add-inner">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round"></path>
+          </svg>
+        </span>
+        <span class="orbit-add-tooltip">新增禱告卡片</span>
+      </button>
+
       <!-- 節點卡片容器 (增量 DOM 更新，絕不閃爍) -->
       <div id="nodes-container"></div>
     </div>
   </main>
 
   <!-- =========================================================
-       左側懸浮深色工具箱面板
+       左下角極簡畫布控制膠囊（縮放、置中、自動排版、展開/收合）
        ========================================================= -->
-  <aside id="left-sidebar" class="floating-sidebar fixed top-20 left-4 bottom-4 w-[248px] z-40 p-5 flex flex-col transition-transform duration-300 -translate-x-[120%] lg:translate-x-0">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-bold text-white tracking-tight w-full text-center">禱告工具箱</h2>
-      <button onclick="toggleMobileDrawer('left')" class="lg:hidden text-zinc-400 hover:text-white text-sm">✕</button>
-    </div>
-
-    <!-- 白色膠囊搜尋框 + 圓形深色放大鏡按鈕 -->
-    <div class="relative flex items-center bg-white rounded-full p-1 pl-4 shadow-md mb-6">
-      <input
-        type="text"
-        id="sidebar-search-input"
-        oninput="handleSearch(this.value)"
-        placeholder="搜尋禱告或經文..."
-        class="w-full bg-transparent text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none pr-2"
-      />
-      <button onclick="document.getElementById('sidebar-search-input').focus()" class="w-8 h-8 rounded-full bg-[#1c1c20] text-white flex items-center justify-center shrink-0 hover:bg-zinc-800 transition">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-          <circle cx="11" cy="11" r="7"></circle>
-          <path d="m20 20-3.5-3.5" stroke-linecap="round"></path>
-        </svg>
-      </button>
-    </div>
-
-    <!-- 2 欄圓形白色圖示網格 -->
-    <div class="grid grid-cols-2 gap-y-5 gap-x-3 overflow-y-auto no-scrollbar pb-4">
-      <!-- 1. 新增焦慮 -->
-      <button onclick="openCreateModal('anxiety')" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          🔥
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">貼上焦慮</span>
-      </button>
-
-      <!-- 2. 新增感謝 -->
-      <button onclick="openCreateModal('gratitude')" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          🌸
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">貼上感謝</span>
-      </button>
-
-      <!-- 3. 靈修心得 -->
-      <button onclick="openCreateModal('reflection')" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          ✍️
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">紀錄心得</span>
-      </button>
-
-      <!-- 4. AI 尋找經文 -->
-      <button onclick="triggerAIOnSelected()" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          ✨
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">AI 找經文</span>
-      </button>
-
-      <!-- 5. XMind 自動排版 -->
-      <button onclick="autoLayoutTree()" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          🪄
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">自動排版</span>
-      </button>
-
-      <!-- 6. 總覽置中 -->
-      <button onclick="fitAllNodes()" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          🎯
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">總覽置中</span>
-      </button>
-
-      <!-- 7. 展開全部分支 -->
-      <button onclick="toggleAllBranches(false)" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-xl font-bold text-zinc-900 group-hover:scale-105 group-active:scale-95 transition">
-          ⊞
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">展開分支</span>
-      </button>
-
-      <!-- 8. API Key 設定 -->
-      <button onclick="openSettingsModal()" class="flex flex-col items-center gap-2 group">
-        <div class="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl group-hover:scale-105 group-active:scale-95 transition">
-          ⚙️
-        </div>
-        <span class="text-[11px] font-medium text-zinc-300 group-hover:text-white">API 設定</span>
-      </button>
-    </div>
-
-    <!-- 底部提示 -->
-    <div class="mt-auto pt-3 border-t border-white/[0.07] text-[11px] text-zinc-400 leading-relaxed text-center">
-      拖動母集卡片時子分支同步跟隨<br/>雙擊畫布任意處可建立新節點
-    </div>
-  </aside>
-
-  <!-- =========================================================
-       左下角懸浮垂直控制膠囊 (+, -, ×, 🗑)
-       ========================================================= -->
-  <div class="fixed bottom-5 left-4 lg:left-[276px] z-40 bg-[#242429]/95 backdrop-blur-md border border-white/10 rounded-full p-1.5 flex flex-col items-center gap-1.5 shadow-2xl">
+  <div class="fixed bottom-5 left-5 z-40 bg-[#1a1a1f]/90 backdrop-blur-md border border-white/15 rounded-full p-1.5 flex flex-col items-center gap-1 shadow-2xl">
     <button onclick="zoomCanvas(0.15)" title="放大畫布" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-200 font-bold text-base flex items-center justify-center transition">
       +
     </button>
     <button onclick="zoomCanvas(-0.15)" title="縮小畫布" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-200 font-bold text-base flex items-center justify-center transition">
       −
     </button>
-    <button onclick="resetView()" title="重設視角 (100%)" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white text-xs flex items-center justify-center transition">
-      ✕
+    <button onclick="fitAllNodes()" title="總覽置中" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"></path>
+      </svg>
     </button>
-    <button onclick="deleteSelectedNode()" title="刪除選取的卡片" class="w-8 h-8 rounded-full hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 text-xs flex items-center justify-center transition">
-      🗑
+    <button onclick="autoLayoutTree()" title="重新整理軌道排版" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" stroke-dasharray="3 3"></circle>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </button>
+    <button onclick="toggleAllBranchesSmart()" id="btn-toggle-all-branches" title="展開或收合全部子分支" class="w-8 h-8 rounded-full hover:bg-white/10 text-zinc-300 hover:text-white flex items-center justify-center transition">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke-linecap="round"></path>
+      </svg>
     </button>
   </div>
-
-  <!-- =========================================================
-       右側懸浮深色快速卡片面板
-       ========================================================= -->
-  <aside id="right-sidebar" class="floating-sidebar fixed top-20 right-4 bottom-4 w-[275px] z-40 p-5 flex flex-col transition-transform duration-300 translate-x-[120%] lg:translate-x-0">
-    <div class="flex items-center justify-between mb-4">
-      <button onclick="toggleMobileDrawer('right')" class="lg:hidden text-zinc-400 hover:text-white text-sm">✕</button>
-      <h2 class="text-lg font-bold text-white tracking-tight w-full text-center">新增禱告卡片</h2>
-    </div>
-
-    <!-- 白色膠囊縮放指示列 -->
-    <div class="relative flex items-center justify-between bg-white rounded-full p-1 pl-4 shadow-md mb-5">
-      <span id="zoom-indicator" class="text-xs font-medium text-zinc-500">畫布縮放：100%</span>
-      <button onclick="fitAllNodes()" title="自動適應視窗" class="w-8 h-8 rounded-full bg-[#1c1c20] text-white flex items-center justify-center shrink-0 hover:bg-zinc-800 transition text-xs">
-        ⇄
-      </button>
-    </div>
-
-    <!-- 繽紛彩色模板卡片列表 -->
-    <div class="space-y-3.5 overflow-y-auto no-scrollbar pb-4">
-      <!-- 1. 薰衣草紫卡片 (#a58cf5) - 焦慮重擔 -->
-      <div
-        draggable="true"
-        ondragstart="handleTemplateDragStart(event, 'anxiety')"
-        class="template-card bg-[#a58cf5] text-zinc-950 shadow-lg"
-      >
-        <div class="flex items-center gap-1.5 mb-2.5">
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🔥</span>
-          <span class="text-xs font-bold opacity-60">›</span>
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🙏</span>
-          <span class="text-xs font-bold ml-1">焦慮與掛慮</span>
-        </div>
-        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
-          把心裡的擔憂與重擔貼上去，讓 <strong class="font-bold">AI 尋找應許經文</strong> 陪伴你。
-        </p>
-        <button onclick="openCreateModal('anxiety')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
-          貼上焦慮卡片
-        </button>
-      </div>
-
-      <!-- 2. 螢光檸檬黃卡片 (#e4f33b) - 感恩獻上 -->
-      <div
-        draggable="true"
-        ondragstart="handleTemplateDragStart(event, 'gratitude')"
-        class="template-card bg-[#e4f33b] text-zinc-950 shadow-lg"
-      >
-        <div class="flex items-center gap-1.5 mb-2.5">
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">🌸</span>
-          <span class="text-xs font-bold opacity-60">›</span>
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">✨</span>
-          <span class="text-xs font-bold ml-1">感恩與讚美</span>
-        </div>
-        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
-          數算每日的恩典與回應，將 <strong class="font-bold">感謝的祭</strong> 獻在畫布上。
-        </p>
-        <button onclick="openCreateModal('gratitude')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
-          貼上感謝卡片
-        </button>
-      </div>
-
-      <!-- 3. 薄荷綠卡片 (#24ef95) - 靈修心得分支 -->
-      <div
-        draggable="true"
-        ondragstart="handleTemplateDragStart(event, 'reflection')"
-        class="template-card bg-[#24ef95] text-zinc-950 shadow-lg"
-      >
-        <div class="flex items-center gap-1.5 mb-2.5">
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">✍️</span>
-          <span class="text-xs font-bold opacity-60">›</span>
-          <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-sm shadow-sm">💡</span>
-          <span class="text-xs font-bold ml-1">靈修心得分支</span>
-        </div>
-        <p class="text-xs font-medium leading-relaxed text-zinc-900/90 mb-3.5">
-          在任何地方延伸新分支，記錄你的 <strong class="font-bold">禱告領受與筆記</strong>。
-        </p>
-        <button onclick="openCreateModal('reflection')" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
-          新增心得節點
-        </button>
-      </div>
-
-      <!-- 4. 純白卡片 (#ffffff) - AI 聖經經文助手 -->
-      <div class="template-card bg-white text-zinc-950 shadow-lg">
-        <div class="flex items-center gap-1.5 mb-2.5">
-          <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm">📜</span>
-          <span class="text-xs font-bold opacity-50">›</span>
-          <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm">🤖</span>
-          <span class="text-xs font-bold ml-1">AI 聖經查考</span>
-        </div>
-        <p class="text-xs font-medium leading-relaxed text-zinc-600 mb-3.5">
-          點選畫布上任一張卡片，立即展開 <strong class="text-zinc-900">和合本經文分支</strong>。
-        </p>
-        <button onclick="triggerAIOnSelected()" class="w-full py-2.5 rounded-full bg-[#202024] hover:bg-zinc-900 text-white text-xs font-semibold shadow transition">
-          ✨ AI 尋找經文
-        </button>
-      </div>
-    </div>
-  </aside>
 
   <!-- =========================================================
        新增禱告 / 感謝 / 心得彈窗
@@ -601,62 +896,28 @@
             ⚙️
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">AI 與雲端記憶設定</h3>
-            <p class="text-[11px] text-zinc-400">金鑰會自動同步儲存至您的雲端資料庫</p>
+            <h3 class="text-base font-bold text-white">雲端記憶與系統設定</h3>
+            <p class="text-[11px] text-zinc-400">管理您的禱告地圖雲端同步狀態</p>
           </div>
         </div>
         <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">✕</button>
       </div>
 
       <div class="space-y-4">
-        <!-- Gemini API Key 輸入區塊 -->
-        <div class="bg-[#16161a] border border-white/10 rounded-2xl p-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-bold text-white">Google Gemini API Key</label>
-            <span id="settings-key-status" class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">尚未設定</span>
-          </div>
-
-          <div class="relative flex items-center">
-            <input
-              type="password"
-              id="settings-gemini-key"
-              placeholder="貼上您的 AIzaSy... 金鑰"
-              class="w-full bg-[#222227] border border-white/10 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#24ef95]"
-            />
-            <button
-              type="button"
-              onclick="toggleApiKeyVisibility()"
-              title="顯示 / 隱藏金鑰"
-              class="absolute right-2.5 text-zinc-400 hover:text-white text-xs px-1"
-            >
-              👁️
-            </button>
-          </div>
-
-          <p class="text-[11px] text-zinc-400 mt-2.5 leading-relaxed">
-            設定後即使部署在 GitHub Pages 也能使用完整 Gemini AI 經文查考；若留空則自動使用內建和合本經文智能匹配引擎。
-          </p>
-        </div>
-
         <!-- 雲端同步狀態說明 -->
-        <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3.5 flex items-center justify-between text-xs">
+        <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 flex items-center justify-between text-xs">
           <span class="text-zinc-300">雲端資料庫記憶狀態</span>
           <span id="settings-cloud-state" class="font-semibold text-[#24ef95]">檢查中...</span>
         </div>
+        <p class="text-xs text-zinc-400 leading-relaxed px-1">
+          本應用程式已內建伺服器端 Google Gemini AI 智慧經文查考，所有開啟此應用程式的使用者皆可直接使用 AI 查經功能。
+        </p>
       </div>
 
-      <div class="flex items-center justify-between gap-2 mt-6">
-        <button onclick="clearSavedApiKey()" class="px-3.5 py-2.5 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold transition">
-          清除金鑰
+      <div class="flex items-center justify-end gap-2 mt-6">
+        <button onclick="closeSettingsModal()" class="px-5 py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 text-xs font-bold shadow-lg transition">
+          確定
         </button>
-        <div class="flex items-center gap-2">
-          <button onclick="closeSettingsModal()" class="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-zinc-300 text-xs font-semibold transition">
-            取消
-          </button>
-          <button onclick="saveSettingsToCloud()" class="px-5 py-2.5 rounded-full bg-[#24ef95] hover:brightness-105 text-zinc-950 text-xs font-bold shadow-lg transition">
-            💾 儲存至雲端
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -1152,59 +1413,29 @@
     }
 
     // ==========================================
-    // 4. API Key 設定面板與雲端記憶 (Firestore)
+    // 4. 系統設定與雲端記憶 (Firestore)
     // ==========================================
     function subscribeToUserSettings(uid) {
       if (!db || !uid) return;
       if (unsubscribeSettings) unsubscribeSettings();
 
       const settingsDocRef = doc(db, 'artifacts', appId, 'users', uid, 'settings', 'preferences');
-      unsubscribeSettings = onSnapshot(settingsDocRef, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (typeof data.geminiApiKey === 'string') {
-            savedGeminiApiKey = data.geminiApiKey;
-            updateApiKeyIndicator();
-          }
-        }
+      unsubscribeSettings = onSnapshot(settingsDocRef, (_snap) => {
+        // user settings sync
       }, (err) => {
         console.warn("Settings snapshot error:", err);
       });
     }
 
-    function updateApiKeyIndicator() {
-      const badge = document.getElementById('api-key-badge');
-      const statusEl = document.getElementById('settings-key-status');
-      const hasKey = Boolean(savedGeminiApiKey && savedGeminiApiKey.trim().length > 0);
-
-      if (badge) {
-        badge.className = hasKey
-          ? 'w-2 h-2 rounded-full bg-[#24ef95]'
-          : 'w-2 h-2 rounded-full bg-zinc-500';
-      }
-      if (statusEl) {
-        statusEl.textContent = hasKey ? '已記憶雲端金鑰' : '尚未設定';
-        statusEl.className = hasKey
-          ? 'text-[10px] px-2 py-0.5 rounded-full bg-[#24ef95]/20 text-[#24ef95] font-bold'
-          : 'text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400';
-      }
-    }
-
     window.openSettingsModal = function () {
       const modal = document.getElementById('settings-modal');
-      const input = document.getElementById('settings-gemini-key');
       const cloudStateEl = document.getElementById('settings-cloud-state');
 
-      if (input) {
-        input.type = 'password';
-        input.value = savedGeminiApiKey || '';
-      }
       if (cloudStateEl) {
         cloudStateEl.textContent = (cloudAvailable && currentUser)
           ? '已連線雲端（自動跨裝置同步）'
           : '目前為單機畫布模式（本次工作階段有效）';
       }
-      updateApiKeyIndicator();
       modal.classList.remove('hidden');
       modal.classList.add('flex');
     };
@@ -1213,54 +1444,6 @@
       const modal = document.getElementById('settings-modal');
       modal.classList.add('hidden');
       modal.classList.remove('flex');
-    };
-
-    window.toggleApiKeyVisibility = function () {
-      const input = document.getElementById('settings-gemini-key');
-      if (!input) return;
-      input.type = input.type === 'password' ? 'text' : 'password';
-    };
-
-    window.saveSettingsToCloud = async function () {
-      const input = document.getElementById('settings-gemini-key');
-      const keyVal = input ? input.value.trim() : '';
-      savedGeminiApiKey = keyVal;
-      updateApiKeyIndicator();
-      window.closeSettingsModal();
-
-      if (cloudAvailable && db && currentUser) {
-        setSyncStatus('syncing', '正在雲端記憶設定...');
-        try {
-          const settingsDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'preferences');
-          await setDoc(settingsDocRef, {
-            geminiApiKey: keyVal,
-            updatedAt: Date.now()
-          }, { merge: true });
-          setSyncStatus('synced', '已同步至雲端');
-          showToast("💾 API Key 已儲存並記憶至您的雲端！", "success");
-        } catch (err) {
-          console.error("Save settings error:", err);
-          setSyncStatus('error', '設定同步失敗');
-          showToast("雲端寫入異常，目前先套用於本次工作階段", "warning");
-        }
-      } else {
-        showToast("✅ API Key 已套用於本次工作階段！", "success");
-      }
-    };
-
-    window.clearSavedApiKey = async function () {
-      savedGeminiApiKey = '';
-      const input = document.getElementById('settings-gemini-key');
-      if (input) input.value = '';
-      updateApiKeyIndicator();
-
-      if (cloudAvailable && db && currentUser) {
-        try {
-          const settingsDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'settings', 'preferences');
-          await setDoc(settingsDocRef, { geminiApiKey: '', updatedAt: Date.now() }, { merge: true });
-        } catch (_) {}
-      }
-      showToast("已清除記憶的 API Key", "info");
     };
 
     // ==========================================
@@ -1336,11 +1519,11 @@
       }
     }
 
-    window.updateNodeFields = async function (nodeId, fields) {
+    window.updateNodeFields = async function (nodeId, fields, revealDelays = null, retractDelays = null) {
       const existing = state.nodes.get(nodeId);
       if (!existing) return;
       Object.assign(existing, fields, { updatedAt: Date.now() });
-      syncBoardDOM();
+      syncBoardDOM(new Set(), revealDelays, retractDelays);
 
       if (!cloudAvailable || !db || !currentUser) return;
       setSyncStatus('syncing', '儲存中...');
@@ -1366,8 +1549,11 @@
         }
       }
 
+      cancelPendingRetract(toDelete);
+
       if (toDelete.has(state.selectedNodeId)) {
         state.selectedNodeId = null;
+        renderRootInspector();
       }
 
       for (const id of toDelete) {
@@ -1391,75 +1577,250 @@
 
     async function seedInitialWorkflow() {
       const now = Date.now();
-      const rootId = 'node-root-1';
-      const scriptureId = 'node-scripture-1';
-      const gratitudeId = 'node-gratitude-1';
-      const reflectionId = 'node-reflection-1';
+      const root1 = 'node-root-1';
+      const scripture1 = 'node-scripture-1';
+      const gratitude1 = 'node-gratitude-1';
+      const reflection1 = 'node-reflection-1';
+
+      const root2 = 'node-root-2';
+      const scripture2 = 'node-scripture-2';
+      const reflection2 = 'node-reflection-2';
+      const reflection2b = 'node-reflection-2b';
+
+      const root3 = 'node-root-3';
+      const scripture3 = 'node-scripture-3';
+      const gratitude3 = 'node-gratitude-3';
+      const scripture3b = 'node-scripture-3b';
+
+      const root4 = 'node-root-4';
+      const reflection4 = 'node-reflection-4';
+      const scripture4 = 'node-scripture-4';
 
       const initialNodes = [
         {
-          id: rootId,
+          id: root1,
           parentId: null,
           type: 'anxiety',
-          title: '對未來工作與生活節奏的焦慮',
+          title: '工作與生活焦慮',
           content: '最近待辦事項很多，心裡很容易緊繃不安，求主賜給我平靜與清晰的智慧。',
           reference: '',
           x: 0,
           y: 0,
-          collapsed: false,
+          collapsed: true,
           answered: false,
           createdAt: now,
           updatedAt: now
         },
         {
-          id: scriptureId,
-          parentId: rootId,
+          id: scripture1,
+          parentId: root1,
           type: 'scripture',
           title: '腓立比書 4:6-7',
           content: '「應當一無掛慮，只要凡事藉著禱告、祈求，和感謝，將你們所要的告訴神。神所賜、出人意外的平安必在基督耶穌裡保守你們的心懷意念。」',
           reference: '和合本 · AI 聖經應許',
-          x: -185,
-          y: 265,
+          x: 0,
+          y: 0,
           collapsed: false,
           answered: false,
           createdAt: now + 1,
           updatedAt: now + 1
         },
         {
-          id: gratitudeId,
-          parentId: rootId,
+          id: gratitude1,
+          parentId: root1,
           type: 'gratitude',
           title: '感謝夥伴與家人的支持',
           content: '今天收到朋友的暖心鼓勵，提醒我不是一個人面對所有挑戰。',
           reference: '',
-          x: 185,
-          y: 265,
+          x: 0,
+          y: 0,
           collapsed: false,
           answered: false,
           createdAt: now + 2,
           updatedAt: now + 2
         },
         {
-          id: reflectionId,
-          parentId: scriptureId,
+          id: reflection1,
+          parentId: scripture1,
           type: 'reflection',
           title: '今日靈修心得',
           content: '當我願意先停下來禱告交託，內心的重擔就不再只是自己扛著了。',
           reference: '',
-          x: -185,
-          y: 545,
+          x: 0,
+          y: 0,
           collapsed: false,
           answered: false,
           createdAt: now + 3,
           updatedAt: now + 3
+        },
+        {
+          id: root2,
+          parentId: null,
+          type: 'gratitude',
+          title: '為家人平安感恩',
+          content: '感謝主保守家中每一位成員出入平安，在忙碌的日子裡仍有彼此陪伴的溫暖。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: true,
+          answered: false,
+          createdAt: now + 10,
+          updatedAt: now + 10
+        },
+        {
+          id: scripture2,
+          parentId: root2,
+          type: 'scripture',
+          title: '詩篇 103:2-4',
+          content: '「我的心哪，你要稱頌耶和華！不可忘記他的一切恩惠！他赦免你的一切罪孽，醫治你的一切疾病。」',
+          reference: '和合本 · AI 聖經應許',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 11,
+          updatedAt: now + 11
+        },
+        {
+          id: reflection2b,
+          parentId: root2,
+          type: 'reflection',
+          title: '為父母每日代禱清單',
+          content: '求主賜給父母良好的睡眠與體力，每一天都充滿喜樂與平靜。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 12,
+          updatedAt: now + 12
+        },
+        {
+          id: reflection2,
+          parentId: scripture2,
+          type: 'reflection',
+          title: '數算恩典的練習',
+          content: '每天睡前記下三件值得感恩的小事，心裡就會充滿平安。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 13,
+          updatedAt: now + 13
+        },
+        {
+          id: root3,
+          parentId: null,
+          type: 'scripture',
+          title: '人生方向與選擇',
+          content: '對於接下來的決定還有些不確定，求主為我開啟合適的門並賜下確據。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: true,
+          answered: false,
+          createdAt: now + 20,
+          updatedAt: now + 20
+        },
+        {
+          id: scripture3,
+          parentId: root3,
+          type: 'scripture',
+          title: '箴言 3:5-6',
+          content: '「你要專心仰賴耶和華，不可倚靠自己的聰明，在你一切所行的事上都要認定他，他必指引你的路。」',
+          reference: '和合本 · AI 聖經應許',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 21,
+          updatedAt: now + 21
+        },
+        {
+          id: scripture3b,
+          parentId: root3,
+          type: 'scripture',
+          title: '耶利米書 29:11',
+          content: '「耶和華說：我知道我向你們所懷的意念是賜平安的意念，不是降災禍的意念，要叫你們末後有指望。」',
+          reference: '和合本 · AI 聖經應許',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 22,
+          updatedAt: now + 22
+        },
+        {
+          id: gratitude3,
+          parentId: scripture3,
+          type: 'gratitude',
+          title: '感謝神賜下清晰的印證',
+          content: '在安靜等候中，越來越明白神的心意並不在於急促，而在於信靠。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 23,
+          updatedAt: now + 23
+        },
+        {
+          id: root4,
+          parentId: null,
+          type: 'reflection',
+          title: '每日靈修與靜思',
+          content: '在忙碌之前先預留十分鐘安靜讀經，調整一天的內心節奏。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: true,
+          answered: false,
+          createdAt: now + 30,
+          updatedAt: now + 30
+        },
+        {
+          id: scripture4,
+          parentId: root4,
+          type: 'scripture',
+          title: '以賽亞書 40:31',
+          content: '「但那等候耶和華的必從新得力。他們必如鷹展翅上騰；他們奔跑卻不困倦，行走卻不疲乏。」',
+          reference: '和合本 · AI 聖經應許',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 31,
+          updatedAt: now + 31
+        },
+        {
+          id: reflection4,
+          parentId: scripture4,
+          type: 'reflection',
+          title: '重新得力的秘訣',
+          content: '真正的力量不是靠硬撐，而是在安靜等候中重新對齊神的心意。',
+          reference: '',
+          x: 0,
+          y: 0,
+          collapsed: false,
+          answered: false,
+          createdAt: now + 32,
+          updatedAt: now + 32
         }
       ];
 
       for (const n of initialNodes) {
         state.nodes.set(n.id, n);
+      }
+
+      applyOrbitalRadialLayout();
+
+      for (const n of state.nodes.values()) {
         await saveNodeToCloud(n);
       }
+
       syncBoardDOM();
+      fitAllNodes();
     }
 
     // ==========================================
@@ -1569,68 +1930,36 @@
         scripture: '聖經經文延伸'
       }[node.type] || '禱告事項';
 
-      const systemPrompt = `你是一位充滿愛心、溫柔且熟讀聖經（繁體中文和合本）的屬靈陪伴者。
-使用者在「禱告心智畫布」上建立了一張【${typeLabel}】節點卡片。
-請根據對方的處境與內容，從聖經中挑選出 2 段最貼切、能帶來安慰、力量或共鳴的經文（使用繁體中文和合本），並附上簡短溫暖的靈修亮光。`;
-
-      const userQuery = `節點類型：${typeLabel}\n主題：${node.title || '無標題'}\n內容：${node.content || '請為我的心禱告'}`;
-
-      const payload = {
-        contents: [{ parts: [{ text: userQuery }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              verses: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    reference: { type: "STRING", description: "經卷章節，例如：詩篇 23:1-4" },
-                    verseText: { type: "STRING", description: "繁體中文和合本經文內容" },
-                    encouragement: { type: "STRING", description: "簡短溫暖的鼓勵與禱告方向（約30-45字）" }
-                  },
-                  required: ["reference", "verseText", "encouragement"]
-                }
-              }
-            },
-            required: ["verses"]
-          }
-        }
-      };
-
-      const activeApiKey = savedGeminiApiKey ? savedGeminiApiKey.trim() : "";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${encodeURIComponent(activeApiKey)}`;
-
       let verses = [];
       let usedBuiltInFallback = false;
 
       try {
-        const result = await fetchWithExponentialBackoff(apiUrl, {
+        const response = await fetch('/api/ai/scripture', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }, 1);
-
-        const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!jsonText) throw new Error("Empty AI response");
-
-        const parsed = JSON.parse(jsonText);
+          body: JSON.stringify({
+            typeLabel,
+            title: node.title,
+            content: node.content
+          })
+        });
+        if (!response.ok) throw new Error("Server AI error");
+        const parsed = await response.json();
         verses = parsed.verses || [];
       } catch (err) {
-        // 若部署在外部網站且尚未設定 API Key，自動啟用內建和合本經文智能匹配
         verses = matchBuiltInScriptures(`${node.title} ${node.content}`);
         usedBuiltInFallback = true;
       }
 
       try {
         const existingChildren = getChildrenOf(nodeId);
+        const totalAfterAdd = existingChildren.length + verses.length;
+        const createdIds = [];
+
         for (let i = 0; i < verses.length; i++) {
           const v = verses[i];
           const newId = 'node-' + crypto.randomUUID().slice(0, 8);
-          const colOffset = (existingChildren.length + i - (verses.length - 1) / 2) * 330;
+          const pos = computeOutwardChildPosition(node, existingChildren.length + i, totalAfterAdd);
           const newNode = {
             id: newId,
             parentId: nodeId,
@@ -1638,17 +1967,21 @@
             title: v.reference,
             content: `「${v.verseText}」\n💡 ${v.encouragement}`,
             reference: usedBuiltInFallback ? '和合本 · 聖經經文匹配' : '和合本 · AI 聖經應許',
-            x: Math.round(node.x + colOffset),
-            y: Math.round(node.y + 275),
+            x: pos.x,
+            y: pos.y,
             collapsed: false,
             answered: false,
             createdAt: Date.now() + i,
             updatedAt: Date.now() + i
           };
           state.nodes.set(newId, newNode);
-          syncBoardDOM(new Set([newId]));
+          createdIds.push(newId);
           await saveNodeToCloud(newNode);
         }
+
+        const revealDelays = new Map();
+        createdIds.forEach((id, idx) => revealDelays.set(id, idx * 120));
+        syncBoardDOM(new Set(), revealDelays);
 
         showToast(`📜 已為您展開 ${verses.length} 則聖經應許分支！`, "success");
       } finally {
@@ -1718,7 +2051,53 @@
       return ids;
     }
 
+    const retractingNodeIds = new Set();
+    const pendingRetractTimers = new Map(); // nodeId -> timeoutId
+
+    function cancelPendingRetract(nodeIds) {
+      for (const id of nodeIds) {
+        const timer = pendingRetractTimers.get(id);
+        if (timer) {
+          clearTimeout(timer);
+          pendingRetractTimers.delete(id);
+        }
+        retractingNodeIds.delete(id);
+
+        const cardEl = state.nodeElements.get(id);
+        if (cardEl) {
+          cardEl.classList.remove('node-cascade-retract');
+          cardEl.style.removeProperty('--reveal-delay');
+          cardEl.style.removeProperty('--scatter-x');
+          cardEl.style.removeProperty('--scatter-y');
+        }
+
+        const edgeObj = edgeElements.get(id);
+        if (edgeObj) {
+          edgeObj.path.classList.remove('connector-path-retract');
+          edgeObj.dot1.classList.remove('connector-dot-retract');
+          edgeObj.dot2.classList.remove('connector-dot-retract');
+        }
+      }
+    }
+
+    function scheduleRetractNodes(retractDelays) {
+      for (const [id, delayMs] of retractDelays.entries()) {
+        const existingTimer = pendingRetractTimers.get(id);
+        if (existingTimer) clearTimeout(existingTimer);
+        retractingNodeIds.add(id);
+
+        const timer = setTimeout(() => {
+          pendingRetractTimers.delete(id);
+          retractingNodeIds.delete(id);
+          syncBoardDOM();
+        }, delayMs + NODE_RETRACT_DURATION_MS + 50);
+
+        pendingRetractTimers.set(id, timer);
+      }
+    }
+
     function isNodeHiddenByCollapse(node) {
+      if (retractingNodeIds.has(node.id)) return false;
       let currentParentId = node.parentId;
       const visited = new Set();
       while (currentParentId && !visited.has(currentParentId)) {
@@ -1731,22 +2110,491 @@
       return false;
     }
 
+    const ORBIT_CX = 0;
+    const ORBIT_CY = 0;
+    const ROOT_SIZE = 76;
+    const ROOT_HALF = 38;
+    const MOTHER_CARD_W = 288;
+    const MOTHER_CARD_GAP = 16;
+    const CARD_HALF_W = 146;
+    const CARD_HALF_H = 104;
+    const BASE_ORBIT_RADIUS = 415;
+    const FIRST_RADIAL_LAYER_STEP = 540;
+    const RADIAL_LAYER_STEP = 360;
+    const LEVEL_REVEAL_STEP_MS = 320;
+    const NODE_REVEAL_DURATION_MS = 860;
+    const LEVEL_RETRACT_STEP_MS = 300;
+    const NODE_RETRACT_DURATION_MS = 820;
+
+    // 每日一句經文庫（和合本）
+    const DAILY_VERSES = [
+      { text: '應當一無掛慮，只要凡事藉著禱告、祈求，和感謝，將你們所要的告訴神。', ref: '腓立比書 4:6' },
+      { text: '神所賜、出人意外的平安，必在基督耶穌裡保守你們的心懷意念。', ref: '腓立比書 4:7' },
+      { text: '你要專心仰賴耶和華，不可倚靠自己的聰明，他必指引你的路。', ref: '箴言 3:5-6' },
+      { text: '但那等候耶和華的必從新得力，他們必如鷹展翅上騰。', ref: '以賽亞書 40:31' },
+      { text: '你們要將一切的憂慮卸給神，因為他顧念你們。', ref: '彼得前書 5:7' },
+      { text: '我留下平安給你們；你們心裡不要憂愁，也不要膽怯。', ref: '約翰福音 14:27' },
+      { text: '耶和華是我的牧者，我必不致缺乏。', ref: '詩篇 23:1' },
+      { text: '凡勞苦擔重擔的人可以到我這裡來，我就使你們得安息。', ref: '馬太福音 11:28' },
+      { text: '我的恩典夠你用的，因為我的能力是在人的軟弱上顯得完全。', ref: '哥林多後書 12:9' },
+      { text: '喜樂的心乃是良藥；憂傷的靈使骨枯乾。', ref: '箴言 17:22' },
+      { text: '我知道我向你們所懷的意念是賜平安的意念，要叫你們末後有指望。', ref: '耶利米書 29:11' },
+      { text: '要常常喜樂，不住地禱告，凡事謝恩。', ref: '帖撒羅尼迦前書 5:16-18' },
+      { text: '你不要害怕，因為我與你同在；我必堅固你，我必幫助你。', ref: '以賽亞書 41:10' },
+      { text: '你們要休息，要知道我是神！', ref: '詩篇 46:10' },
+      { text: '我靠著那加給我力量的，凡事都能做。', ref: '腓立比書 4:13' },
+      { text: '愛是恆久忍耐，又有恩慈；愛是永不止息。', ref: '哥林多前書 13:4,8' }
+    ];
+
+    let currentDailyVerseIndex = (() => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 0);
+      const dayOfYear = Math.floor((now - start) / 86400000);
+      return dayOfYear % DAILY_VERSES.length;
+    })();
+
+    function renderDailyVerse(animate = false) {
+      const dateEl = document.getElementById('daily-verse-date');
+      const quoteEl = document.getElementById('daily-verse-quote');
+      const refBtn = document.getElementById('daily-verse-ref-btn');
+      if (!quoteEl || !refBtn) return;
+
+      const now = new Date();
+      if (dateEl) {
+        dateEl.textContent = `今日經文 · ${now.getMonth() + 1}月${now.getDate()}日`;
+      }
+
+      const verse = DAILY_VERSES[currentDailyVerseIndex % DAILY_VERSES.length];
+      if (animate) {
+        quoteEl.style.opacity = '0';
+        quoteEl.style.transform = 'translateY(6px)';
+        setTimeout(() => {
+          quoteEl.textContent = `「${verse.text}」`;
+          refBtn.textContent = verse.ref;
+          quoteEl.style.opacity = '1';
+          quoteEl.style.transform = 'translateY(0)';
+        }, 170);
+      } else {
+        quoteEl.textContent = `「${verse.text}」`;
+        refBtn.textContent = verse.ref;
+      }
+    }
+
+    window.cycleDailyVerse = function () {
+      currentDailyVerseIndex = (currentDailyVerseIndex + 1) % DAILY_VERSES.length;
+      renderDailyVerse(true);
+    };
+
+    const orbitMotion = {
+      rootSway: new Map(), // rootId -> { angle, phaseTime }
+      hoveredRootId: null,
+      lastFrameTime: performance.now(),
+      started: false
+    };
+
+    function isRootNode(node) {
+      return !node.parentId || !state.nodes.has(node.parentId);
+    }
+
+    function getNodeHalfSize(node) {
+      if (isRootNode(node)) {
+        return { hw: ROOT_HALF, hh: ROOT_HALF };
+      }
+      const el = state.nodeElements.get(node.id);
+      return {
+        hw: el ? el.offsetWidth / 2 : CARD_HALF_W,
+        hh: el ? el.offsetHeight / 2 : CARD_HALF_H
+      };
+    }
+
+    function getRootNodes() {
+      const roots = [];
+      for (const node of state.nodes.values()) {
+        if (isRootNode(node)) {
+          roots.push(node);
+        }
+      }
+      return roots.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    }
+
+    function getOrbitRadius() {
+      const roots = getRootNodes();
+      return Math.max(BASE_ORBIT_RADIUS, 360 + Math.max(0, roots.length - 4) * 32);
+    }
+
+    function updateOrbitAddButtonPosition() {
+      const addBtn = document.getElementById('orbit-add-btn');
+      if (!addBtn) return;
+      const orbitR = getOrbitRadius();
+      const angle = Math.PI / 2; // 正下方軌道上，對稱於中央每日經文圓盤
+      const cx = ORBIT_CX + orbitR * Math.cos(angle);
+      const cy = ORBIT_CY + orbitR * Math.sin(angle);
+      addBtn.style.left = `${(cx - 28).toFixed(1)}px`;
+      addBtn.style.top = `${(cy - 28).toFixed(1)}px`;
+    }
+
+    function getRootIdOf(nodeId) {
+      let curr = state.nodes.get(nodeId);
+      const visited = new Set();
+      while (curr && curr.parentId && state.nodes.has(curr.parentId) && !visited.has(curr.id)) {
+        visited.add(curr.id);
+        curr = state.nodes.get(curr.parentId);
+      }
+      return curr ? curr.id : nodeId;
+    }
+
+    function getSubtreeSwayAngle(nodeId) {
+      const rootId = getRootIdOf(nodeId);
+      const entry = orbitMotion.rootSway.get(rootId);
+      return entry ? entry.angle : 0;
+    }
+
+    function rotatePointAroundOrbit(x, y, angle, hw = CARD_HALF_W, hh = CARD_HALF_H) {
+      if (!angle) return { x, y };
+      const cx = x + hw;
+      const cy = y + hh;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const dx = cx - ORBIT_CX;
+      const dy = cy - ORBIT_CY;
+      return {
+        x: ORBIT_CX + dx * cos - dy * sin - hw,
+        y: ORBIT_CY + dx * sin + dy * cos - hh
+      };
+    }
+
+    function getRenderedNodePos(node) {
+      if (state.draggingNodeIds.has(node.id)) {
+        return { x: node.x, y: node.y };
+      }
+      const { hw, hh } = getNodeHalfSize(node);
+      return rotatePointAroundOrbit(node.x, node.y, getSubtreeSwayAngle(node.id), hw, hh);
+    }
+
+    function getSubtreeLeafCount(nodeId) {
+      const children = getChildrenOf(nodeId);
+      if (children.length === 0) return 1;
+      let total = 0;
+      for (const child of children) {
+        total += getSubtreeLeafCount(child.id);
+      }
+      return total;
+    }
+
+    function computeFlankingRootAngles(count) {
+      if (count <= 0) return [];
+      const leftCount = Math.ceil(count / 2);
+      const rightCount = Math.floor(count / 2);
+
+      const leftSpan = Math.min(Math.PI * 0.62, Math.max(0.45, (leftCount - 1) * 0.48));
+      const rightSpan = Math.min(Math.PI * 0.62, Math.max(0.45, (rightCount - 1) * 0.48));
+
+      const leftAngles = [];
+      for (let i = 0; i < leftCount; i++) {
+        const t = leftCount === 1 ? 0 : (i / (leftCount - 1)) - 0.5;
+        // 左側由上至下分佈（約 215° -> 145°）
+        leftAngles.push(Math.PI - t * leftSpan);
+      }
+
+      const rightAngles = [];
+      for (let i = 0; i < rightCount; i++) {
+        const t = rightCount === 1 ? 0 : (i / (rightCount - 1)) - 0.5;
+        // 右側由上至下分佈（約 -35° -> +35°）
+        rightAngles.push(t * rightSpan);
+      }
+
+      const result = [];
+      for (let i = 0; i < Math.max(leftAngles.length, rightAngles.length); i++) {
+        if (i < leftAngles.length) result.push(leftAngles[i]);
+        if (i < rightAngles.length) result.push(rightAngles[i]);
+      }
+      return result;
+    }
+
+    function applyOrbitalRadialLayout() {
+      const roots = getRootNodes();
+      updateOrbitAddButtonPosition();
+      if (roots.length === 0) return;
+
+      const orbitR = getOrbitRadius();
+      const rootCount = roots.length;
+      const rootAngles = computeFlankingRootAngles(rootCount);
+      const rootSector = Math.min(Math.PI * 0.55, Math.PI / Math.max(Math.ceil(rootCount / 2), 1.5));
+
+      function layoutRadialChildren(parent, parentAngle, depth, availableArc) {
+        const children = getChildrenOf(parent.id);
+        if (children.length === 0) return;
+
+        const r = orbitR + FIRST_RADIAL_LAYER_STEP + Math.max(0, depth - 1) * RADIAL_LAYER_STEP;
+        const minStep = 345 / r;
+        const weights = children.map(c => getSubtreeLeafCount(c.id));
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+        if (children.length === 1) {
+          const child = children[0];
+          child.x = Math.round(ORBIT_CX + r * Math.cos(parentAngle) - CARD_HALF_W);
+          child.y = Math.round(ORBIT_CY + r * Math.sin(parentAngle) - CARD_HALF_H);
+          layoutRadialChildren(child, parentAngle, depth + 1, availableArc);
+          return;
+        }
+
+        const totalArc = Math.max(
+          (children.length - 1) * minStep,
+          Math.min(availableArc, totalWeight * minStep * 0.92)
+        );
+        let cursor = parentAngle - totalArc / 2;
+
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          const childShare = (weights[i] / totalWeight) * totalArc;
+          const childAngle = children.length === totalWeight
+            ? parentAngle - totalArc / 2 + (i / (children.length - 1)) * totalArc
+            : cursor + childShare / 2;
+
+          child.x = Math.round(ORBIT_CX + r * Math.cos(childAngle) - CARD_HALF_W);
+          child.y = Math.round(ORBIT_CY + r * Math.sin(childAngle) - CARD_HALF_H);
+
+          layoutRadialChildren(child, childAngle, depth + 1, Math.max(childShare, minStep * 1.1));
+          cursor += childShare;
+        }
+      }
+
+      for (let i = 0; i < rootCount; i++) {
+        const root = roots[i];
+        const rootAngle = rootAngles[i];
+        root.x = Math.round(ORBIT_CX + orbitR * Math.cos(rootAngle) - ROOT_HALF);
+        root.y = Math.round(ORBIT_CY + orbitR * Math.sin(rootAngle) - ROOT_HALF);
+        layoutRadialChildren(root, rootAngle, 1, rootSector);
+      }
+
+      orbitMotion.rootSway.clear();
+    }
+
+    function getRootCardBox(rootNode, rootPos) {
+      const el = state.nodeElements.get(rootNode.id);
+      const cardEl = el?.querySelector('[data-role="root-card"]');
+      const cardH = cardEl && cardEl.offsetHeight ? cardEl.offsetHeight : 230;
+      const isLeftSide = (rootPos.x + ROOT_HALF) < ORBIT_CX;
+      const cardX = isLeftSide
+        ? (rootPos.x - MOTHER_CARD_GAP - MOTHER_CARD_W)
+        : (rootPos.x + ROOT_SIZE + MOTHER_CARD_GAP);
+      const cardY = rootPos.y + ROOT_HALF - cardH / 2;
+      return {
+        x: cardX,
+        y: cardY,
+        w: MOTHER_CARD_W,
+        h: cardH,
+        cx: cardX + MOTHER_CARD_W / 2,
+        cy: cardY + cardH / 2,
+        isLeftSide
+      };
+    }
+
+    function computeOutwardChildPosition(parent, childIndex, totalChildren) {
+      const { hw, hh } = getNodeHalfSize(parent);
+      const pcx = parent.x + hw;
+      const pcy = parent.y + hh;
+      const dx = pcx - ORBIT_CX;
+      const dy = pcy - ORBIT_CY;
+      const dist = Math.hypot(dx, dy);
+      const baseAngle = dist > 20 ? Math.atan2(dy, dx) : 0;
+      const layerOffset = isRootNode(parent) ? FIRST_RADIAL_LAYER_STEP : RADIAL_LAYER_STEP;
+      const targetR = Math.max(dist, getOrbitRadius()) + layerOffset;
+      const step = 345 / targetR;
+      const offsetAngle = (childIndex - (totalChildren - 1) / 2) * step;
+      const finalAngle = baseAngle + offsetAngle;
+      return {
+        x: Math.round(ORBIT_CX + targetR * Math.cos(finalAngle) - CARD_HALF_W),
+        y: Math.round(ORBIT_CY + targetR * Math.sin(finalAngle) - CARD_HALF_H)
+      };
+    }
+
+    function computeNextOrbitRootPosition() {
+      const roots = getRootNodes();
+      const nextCount = roots.length + 1;
+      const orbitR = Math.max(BASE_ORBIT_RADIUS, 360 + Math.max(0, nextCount - 4) * 32);
+      const angles = computeFlankingRootAngles(nextCount);
+      const nextAngle = angles[angles.length - 1] ?? 0;
+      return {
+        x: Math.round(ORBIT_CX + orbitR * Math.cos(nextAngle) - ROOT_HALF),
+        y: Math.round(ORBIT_CY + orbitR * Math.sin(nextAngle) - ROOT_HALF)
+      };
+    }
+
+    function getVisibleDescendantDepthMap(rootId) {
+      const depthMap = new Map();
+      const queue = [];
+      for (const child of getChildrenOf(rootId)) {
+        queue.push({ node: child, depth: 1 });
+      }
+      while (queue.length > 0) {
+        const { node, depth } = queue.shift();
+        if (depthMap.has(node.id)) continue;
+        depthMap.set(node.id, depth);
+        if (!node.collapsed) {
+          for (const child of getChildrenOf(node.id)) {
+            queue.push({ node: child, depth: depth + 1 });
+          }
+        }
+      }
+      return depthMap;
+    }
+
+    function buildRevealDelaysFromDepthMap(depthMap) {
+      const revealDelays = new Map();
+      for (const [id, depth] of depthMap.entries()) {
+        revealDelays.set(id, Math.max(0, depth - 1) * LEVEL_REVEAL_STEP_MS);
+      }
+      return revealDelays;
+    }
+
+    function buildRetractDelaysFromDepthMap(depthMap) {
+      const retractDelays = new Map();
+      let maxDepth = 1;
+      for (const depth of depthMap.values()) {
+        if (depth > maxDepth) maxDepth = depth;
+      }
+      for (const [id, depth] of depthMap.entries()) {
+        retractDelays.set(id, Math.max(0, maxDepth - depth) * LEVEL_RETRACT_STEP_MS);
+      }
+      return retractDelays;
+    }
+
+    function shiftSubtreeRadially(startNodeId, deltaX, deltaY, shiftedNodes) {
+      const ids = [startNodeId, ...getDescendantIds(startNodeId)];
+      for (const id of ids) {
+        const n = state.nodes.get(id);
+        if (n) {
+          n.x = Math.round((n.x + deltaX) * 100) / 100;
+          n.y = Math.round((n.y + deltaY) * 100) / 100;
+          shiftedNodes.push(n);
+        }
+      }
+    }
+
+    function ensureChildrenClearMotherCard(rootNode) {
+      if (!rootNode || !isRootNode(rootNode)) return;
+      const directChildren = getChildrenOf(rootNode.id);
+      if (directChildren.length === 0) return;
+
+      const rootPos = getRenderedNodePos(rootNode);
+      const box = getRootCardBox(rootNode, rootPos);
+      const pad = 34;
+      const shiftedNodes = [];
+
+      for (const child of directChildren) {
+        const { hw, hh } = getNodeHalfSize(child);
+        const cw = hw * 2;
+        const ch = hh * 2;
+        const overlapsX = child.x < (box.x + box.w + pad) && (child.x + cw) > (box.x - pad);
+        const overlapsY = child.y < (box.y + box.h + pad) && (child.y + ch) > (box.y - pad);
+        if (overlapsX && overlapsY) {
+          const shiftX = box.isLeftSide
+            ? (box.x - pad - cw - child.x)
+            : (box.x + box.w + pad - child.x);
+          shiftSubtreeRadially(child.id, shiftX, 0, shiftedNodes);
+        }
+      }
+
+      if (shiftedNodes.length > 0) {
+        saveMultipleNodesToCloud(shiftedNodes);
+      }
+    }
+
     window.toggleCollapseBranch = async function (e, nodeId) {
       e.stopPropagation();
       const node = state.nodes.get(nodeId);
       if (!node) return;
-      await window.updateNodeFields(nodeId, { collapsed: !node.collapsed });
+      const nextCollapsed = !node.collapsed;
+      let revealDelays = null;
+      let retractDelays = null;
+
+      if (!nextCollapsed) {
+        if (isRootNode(node)) {
+          ensureChildrenClearMotherCard(node);
+        }
+        const depthMap = getVisibleDescendantDepthMap(nodeId);
+        cancelPendingRetract(depthMap.keys());
+        revealDelays = buildRevealDelaysFromDepthMap(depthMap);
+      } else {
+        const depthMap = getVisibleDescendantDepthMap(nodeId);
+        if (depthMap.size > 0) {
+          retractDelays = buildRetractDelaysFromDepthMap(depthMap);
+          scheduleRetractNodes(retractDelays);
+        }
+      }
+
+      await window.updateNodeFields(nodeId, { collapsed: nextCollapsed }, revealDelays, retractDelays);
     };
 
     window.toggleAllBranches = async function (shouldCollapse) {
+      const previouslyHiddenIds = new Set();
+      let retractDelays = null;
+
+      if (!shouldCollapse) {
+        cancelPendingRetract([...retractingNodeIds]);
+        for (const node of state.nodes.values()) {
+          if (isNodeHiddenByCollapse(node)) {
+            previouslyHiddenIds.add(node.id);
+          }
+        }
+      } else {
+        const depthMap = new Map();
+        for (const node of state.nodes.values()) {
+          if (!node.parentId || !state.nodes.has(node.parentId)) continue;
+          if (retractingNodeIds.has(node.id)) continue;
+          if (isNodeHiddenByCollapse(node)) continue;
+
+          let depth = 0;
+          let curr = node;
+          const visited = new Set([node.id]);
+          while (curr && curr.parentId && state.nodes.has(curr.parentId) && !visited.has(curr.parentId)) {
+            visited.add(curr.parentId);
+            depth += 1;
+            curr = state.nodes.get(curr.parentId);
+          }
+          if (depth > 0) depthMap.set(node.id, depth);
+        }
+        if (depthMap.size > 0) {
+          retractDelays = buildRetractDelaysFromDepthMap(depthMap);
+          scheduleRetractNodes(retractDelays);
+        }
+      }
+
       for (const node of state.nodes.values()) {
-        if (countDescendants(node.id) > 0) {
+        if (isRootNode(node) || countDescendants(node.id) > 0) {
+          if (!shouldCollapse && isRootNode(node)) {
+            ensureChildrenClearMotherCard(node);
+          }
           node.collapsed = shouldCollapse;
           saveNodeToCloud(node);
         }
       }
-      syncBoardDOM();
-      showToast(shouldCollapse ? "已收合所有子分支" : "已展開所有子分支", "info");
+
+      let revealDelays = null;
+      if (!shouldCollapse && previouslyHiddenIds.size > 0) {
+        const depthMap = new Map();
+        for (const id of previouslyHiddenIds) {
+          let depth = 1;
+          let curr = state.nodes.get(id);
+          const visited = new Set([id]);
+          while (curr && curr.parentId && previouslyHiddenIds.has(curr.parentId) && !visited.has(curr.parentId)) {
+            visited.add(curr.parentId);
+            depth += 1;
+            curr = state.nodes.get(curr.parentId);
+          }
+          depthMap.set(id, depth);
+        }
+        revealDelays = buildRevealDelaysFromDepthMap(depthMap);
+      }
+
+      syncBoardDOM(new Set(), revealDelays, retractDelays);
+      showToast(shouldCollapse ? "已收合所有分支" : "已展開所有分支", "info");
+    };
+
+    window.toggleAllBranchesSmart = function () {
+      const hasExpanded = [...state.nodes.values()].some(n => (isRootNode(n) || countDescendants(n.id) > 0) && !n.collapsed);
+      window.toggleAllBranches(hasExpanded);
     };
 
     window.addChildBranch = async function (e, parentId, type = 'reflection') {
@@ -1767,7 +2615,7 @@
         anxiety: '交託的新擔憂'
       };
 
-      const offsetX = (siblings.length - 0.5) * 330;
+      const pos = computeOutwardChildPosition(parent, siblings.length, siblings.length + 1);
       const newNode = {
         id: newId,
         parentId: parentId,
@@ -1775,8 +2623,8 @@
         title: defaultTitles[type] || '新分支節點',
         content: '',
         reference: '',
-        x: Math.round(parent.x + offsetX),
-        y: Math.round(parent.y + 275),
+        x: pos.x,
+        y: pos.y,
         collapsed: false,
         answered: false,
         createdAt: Date.now(),
@@ -1785,7 +2633,8 @@
 
       state.nodes.set(newId, newNode);
       state.selectedNodeId = newId;
-      syncBoardDOM(new Set([newId]));
+      const revealDelays = new Map([[newId, 0]]);
+      syncBoardDOM(new Set(), revealDelays);
       await saveNodeToCloud(newNode);
 
       setTimeout(() => {
@@ -1796,47 +2645,14 @@
     };
 
     window.autoLayoutTree = async function () {
-      const roots = [];
-      for (const node of state.nodes.values()) {
-        if (!node.parentId || !state.nodes.has(node.parentId)) {
-          roots.push(node);
-        }
-      }
-      roots.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-
-      const X_GAP = 335;
-      const Y_GAP = 275;
-      let cursorX = 0;
-
-      function layoutSubtree(node, depth, startX) {
-        const children = node.collapsed ? [] : getChildrenOf(node.id);
-        if (children.length === 0) {
-          node.x = Math.round(startX);
-          node.y = Math.round(depth * Y_GAP);
-          return X_GAP;
-        }
-        let subtreeWidth = 0;
-        for (const child of children) {
-          const w = layoutSubtree(child, depth + 1, startX + subtreeWidth);
-          subtreeWidth += w;
-        }
-        node.x = Math.round(startX + (subtreeWidth - X_GAP) / 2);
-        node.y = Math.round(depth * Y_GAP);
-        return subtreeWidth;
-      }
-
-      for (const root of roots) {
-        const w = layoutSubtree(root, 0, cursorX);
-        cursorX += w + 80;
-      }
-
+      applyOrbitalRadialLayout();
       syncBoardDOM();
       fitAllNodes();
 
       for (const node of state.nodes.values()) {
         saveNodeToCloud(node);
       }
-      showToast("🪄 已完成節點工作流自動排版", "success");
+      showToast("🪄 已完成圓形軌道與放射狀自動排版", "success");
     };
 
     // ==========================================
@@ -1845,61 +2661,136 @@
     function getNodeVisualMeta(type, answered) {
       if (answered) {
         return {
-          floatingBadge: '🕊️ 已交託平安',
-          floatingBadgeClass: 'bg-[#24ef95] text-zinc-950',
-          iconPrimary: '🕊️',
-          iconSecondary: '✝',
+          floatingBadge: '已交託平安',
+          floatingBadgeClass: 'bg-[#22c58b] text-zinc-950',
+          medallionBg: '#22c58b',
+          svgIcon: '<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
           categoryName: '已蒙應允',
-          portColor: '#24ef95',
-          lineColor: '#24ef95'
+          portColor: '#22c58b',
+          lineColor: '#71717a'
         };
       }
       switch (type) {
         case 'anxiety':
           return {
-            floatingBadge: '🔥 焦慮重擔',
-            floatingBadgeClass: 'bg-[#ef4444] text-white',
-            iconPrimary: '🔥',
-            iconSecondary: '🙏',
+            floatingBadge: '焦慮重擔',
+            floatingBadgeClass: 'bg-[#e85454] text-white',
+            medallionBg: '#e85454',
+            svgIcon: '<svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12.5 2.2c.4 2.7-.9 4.5-2.1 5.9-1.1 1.2-2.2 2.4-2.2 4.3 0 1.4.8 2.6 2 3.1-.5-1-.3-2.3.7-3.3.5-.5 1-.9 1.3-1.6.9 1.1 1.5 2.4 1.5 3.8 0 1.5-.8 2.8-2 3.6 2.8-.2 5.3-2.5 5.3-5.9 0-3.4-2.1-5.8-4.5-9.9zM12 21c-3.9 0-7-2.9-7-6.8 0-2.8 1.5-5.1 3.3-7.1.3-.3.7-.1.7.3-.1 1.4.3 2.5.9 3.2.5-1.9 2-3.6 2.4-6.4.1-.5.7-.7 1-.3 2.7 3 5.7 5.8 5.7 10.3C19 18.1 15.9 21 12 21z"/></svg>',
             categoryName: '焦慮禱告',
-            portColor: '#ef4444',
-            lineColor: '#ef4444'
+            portColor: '#e85454',
+            lineColor: '#71717a'
           };
         case 'gratitude':
           return {
-            floatingBadge: '🌸 感恩獻上',
-            floatingBadgeClass: 'bg-[#e4f33b] text-zinc-950',
-            iconPrimary: '🌸',
-            iconSecondary: '✨',
+            floatingBadge: '感恩獻上',
+            floatingBadgeClass: 'bg-[#2e7d6b] text-white',
+            medallionBg: '#2e7d6b',
+            svgIcon: '<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 5c-6.5 0-12 3.5-12 10 0 1.7.5 3.1 1.4 4.2M19 5c0 6.5-3.5 12-10 12-1.2 0-2.3-.2-3.3-.6M19 5l-9.5 9.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
             categoryName: '感恩回應',
-            portColor: '#24ef95',
-            lineColor: '#24ef95'
+            portColor: '#2e7d6b',
+            lineColor: '#71717a'
           };
         case 'scripture':
           return {
-            floatingBadge: '📜 聖經應許',
-            floatingBadgeClass: 'bg-[#a58cf5] text-zinc-950',
-            iconPrimary: '📜',
-            iconSecondary: '✝',
+            floatingBadge: '聖經應許',
+            floatingBadgeClass: 'bg-[#9a6df0] text-white',
+            medallionBg: '#9a6df0',
+            svgIcon: '<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.5c-2-1.5-5-1.8-7.5-1.2v12.5c2.5-.6 5.5-.3 7.5 1.2m0-12.5c2-1.5 5-1.8 7.5-1.2v12.5c-2.5-.6-5.5-.3-7.5 1.2m0-12.5V19" stroke-linecap="round" stroke-linejoin="round"/></svg>',
             categoryName: '和合本經文',
-            portColor: '#a58cf5',
-            lineColor: '#24ef95'
+            portColor: '#9a6df0',
+            lineColor: '#71717a'
           };
         case 'reflection':
         default:
           return {
-            floatingBadge: '✍️ 靈修心得',
-            floatingBadgeClass: 'bg-[#24ef95] text-zinc-950',
-            iconPrimary: '✍️',
-            iconSecondary: '💡',
+            floatingBadge: '靈修心得',
+            floatingBadgeClass: 'bg-[#2596ce] text-white',
+            medallionBg: '#2596ce',
+            svgIcon: '<svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" stroke-linejoin="round"/></svg>',
             categoryName: '心得分支',
-            portColor: '#24ef95',
-            lineColor: '#24ef95'
+            portColor: '#2596ce',
+            lineColor: '#71717a'
           };
       }
     }
 
-    function syncBoardDOM(newlyCreatedIds = new Set()) {
+    function getScatterOriginForNode(parent, parentPos) {
+      if (isRootNode(parent) && !parent.collapsed) {
+        const box = getRootCardBox(parent, parentPos);
+        return { cx: box.cx, cy: box.cy };
+      }
+      const pSize = getNodeHalfSize(parent);
+      return { cx: parentPos.x + pSize.hw, cy: parentPos.y + pSize.hh };
+    }
+
+    function applyCascadeReveal(cardEl, node, delayMs) {
+      cardEl.classList.remove('node-just-created', 'node-cascade-reveal', 'node-cascade-retract');
+
+      const parent = node.parentId ? state.nodes.get(node.parentId) : null;
+      let scatterX = 0;
+      let scatterY = -20;
+      if (parent) {
+        const parentPos = getRenderedNodePos(parent);
+        const nodePos = getRenderedNodePos(node);
+        const origin = getScatterOriginForNode(parent, parentPos);
+        const nSize = getNodeHalfSize(node);
+        scatterX = Math.round(origin.cx - (nodePos.x + nSize.hw));
+        scatterY = Math.round(origin.cy - (nodePos.y + nSize.hh));
+      }
+
+      cardEl.style.setProperty('--scatter-x', `${scatterX}px`);
+      cardEl.style.setProperty('--scatter-y', `${scatterY}px`);
+      cardEl.style.setProperty('--reveal-delay', `${delayMs}ms`);
+      void cardEl.offsetWidth;
+      cardEl.classList.add('node-cascade-reveal');
+
+      const onAnimationEnd = (evt) => {
+        if (evt.animationName !== 'nodeRadialScatter') return;
+        cardEl.classList.remove('node-cascade-reveal');
+        cardEl.style.removeProperty('--reveal-delay');
+        cardEl.style.removeProperty('--scatter-x');
+        cardEl.style.removeProperty('--scatter-y');
+        cardEl.removeEventListener('animationend', onAnimationEnd);
+      };
+      cardEl.addEventListener('animationend', onAnimationEnd);
+    }
+
+    function applyCascadeRetract(cardEl, node, delayMs) {
+      cardEl.classList.remove('node-just-created', 'node-cascade-reveal', 'node-cascade-retract');
+
+      const parent = node.parentId ? state.nodes.get(node.parentId) : null;
+      let scatterX = 0;
+      let scatterY = -20;
+      if (parent) {
+        const parentPos = getRenderedNodePos(parent);
+        const nodePos = getRenderedNodePos(node);
+        const pSize = getNodeHalfSize(parent);
+        const nSize = getNodeHalfSize(node);
+        scatterX = Math.round((parentPos.x + pSize.hw) - (nodePos.x + nSize.hw));
+        scatterY = Math.round((parentPos.y + pSize.hh) - (nodePos.y + nSize.hh));
+      }
+
+      cardEl.style.setProperty('--scatter-x', `${scatterX}px`);
+      cardEl.style.setProperty('--scatter-y', `${scatterY}px`);
+      cardEl.style.setProperty('--reveal-delay', `${delayMs}ms`);
+      void cardEl.offsetWidth;
+      cardEl.classList.add('node-cascade-retract');
+    }
+
+    function renderRootInspector() {
+      // 母集卡片已改為直接顯示於母集圓點旁邊，不另顯示底部獨立面板
+    }
+
+    window.closeRootInspector = function () {
+      if (state.selectedNodeId) {
+        const prevEl = state.nodeElements.get(state.selectedNodeId);
+        if (prevEl) prevEl.classList.remove('is-selected');
+        state.selectedNodeId = null;
+      }
+    };
+
+    function syncBoardDOM(newlyCreatedIds = new Set(), revealDelays = null, retractDelays = null) {
       const query = state.searchQuery.trim().toLowerCase();
       const visibleIds = new Set();
 
@@ -1907,9 +2798,15 @@
         if (isNodeHiddenByCollapse(node)) continue;
         visibleIds.add(node.id);
 
+        const expectedKind = isRootNode(node) ? 'root' : 'child';
         let cardEl = state.nodeElements.get(node.id);
-        const isNew = !cardEl;
+        if (cardEl && cardEl.dataset.nodeKind !== expectedKind) {
+          cardEl.remove();
+          state.nodeElements.delete(node.id);
+          cardEl = null;
+        }
 
+        const isNew = !cardEl;
         if (isNew) {
           cardEl = createNodeElement(node);
           if (newlyCreatedIds.has(node.id)) {
@@ -1920,6 +2817,12 @@
         }
 
         updateNodeElementInPlace(cardEl, node, query);
+
+        if (revealDelays && revealDelays.has(node.id)) {
+          applyCascadeReveal(cardEl, node, revealDelays.get(node.id));
+        } else if (retractDelays && retractDelays.has(node.id)) {
+          applyCascadeRetract(cardEl, node, retractDelays.get(node.id));
+        }
       }
 
       for (const [id, el] of state.nodeElements.entries()) {
@@ -1929,110 +2832,254 @@
         }
       }
 
-      renderConnections();
+      renderConnections(revealDelays, retractDelays);
+      renderRootInspector();
     }
 
     function createNodeElement(node) {
       const cardEl = document.createElement('div');
-      cardEl.className = 'flow-node';
+      const rootFlag = isRootNode(node);
       cardEl.dataset.nodeId = node.id;
+      cardEl.dataset.nodeKind = rootFlag ? 'root' : 'child';
 
-      cardEl.innerHTML = `
-        <div class="node-port node-port-top" data-role="port-top"></div>
+      if (rootFlag) {
+        cardEl.className = 'flow-node is-orbital-root';
+        cardEl.innerHTML = `
+          <div class="orbital-medallion-core" data-role="medallion-core"></div>
 
-        <div data-role="floating-badge" class="absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide"></div>
-
-        <div class="flex items-center justify-between px-4 pt-5 pb-2">
-          <div class="flex items-center gap-1.5">
-            <span data-role="icon-1" class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm shadow-inner"></span>
-            <span class="text-xs font-bold text-zinc-300">›</span>
-            <span data-role="icon-2" class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-sm shadow-inner"></span>
-            <span data-role="cat-label" class="text-[11px] font-semibold text-zinc-400 ml-1"></span>
+          <div class="orbital-label-pill side-right" data-role="orbital-label-pill">
+            <span data-role="orbital-title" class="max-w-[144px] truncate"></span>
+            <span data-role="orbital-count" class="text-[11px] font-bold text-zinc-400 hidden"></span>
           </div>
 
-          <div class="flex items-center gap-1">
-            <button data-role="btn-ai-mini" title="AI 尋找契合經文" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold flex items-center justify-center transition">•••</button>
-            <button data-role="btn-del" title="移除此卡片" class="w-6 h-6 rounded-full bg-zinc-100 hover:bg-rose-100 text-zinc-600 hover:text-rose-600 text-[11px] font-bold flex items-center justify-center transition">✕</button>
-            <button data-role="btn-check" title="標記為交託平安 / 已蒙應允" class="w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center transition shadow-sm">✓</button>
+          <div class="orbital-root-card card-side-left" data-role="root-card">
+            <div class="px-4 pt-3.5 pb-1.5 space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span data-role="root-card-badge" class="text-[11px] font-bold tracking-wide text-zinc-500"></span>
+                  <span data-role="root-card-summary" class="text-[10px] font-medium text-zinc-400 truncate hidden"></span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    data-role="root-card-close"
+                    class="w-6 h-6 rounded-full bg-black/[0.06] hover:bg-black/15 text-zinc-600 flex items-center justify-center text-[11px] transition"
+                    title="收合母集卡片"
+                    aria-label="收合母集卡片"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path d="M18 15l-6-6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    data-role="root-card-delete"
+                    class="w-6 h-6 rounded-full bg-black/[0.06] hover:bg-rose-500 text-zinc-500 hover:text-white flex items-center justify-center transition"
+                    title="刪除此禱告節點"
+                    aria-label="刪除此禱告節點"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                      <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <input
+                type="text"
+                data-role="root-card-title"
+                placeholder="輸入禱告主題..."
+                onpointerdown="event.stopPropagation()"
+                class="w-full bg-transparent font-bold text-[14px] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-black/5 rounded-lg px-1 -mx-1"
+              />
+              <textarea
+                data-role="input-content"
+                rows="4"
+                placeholder="寫下你的禱告、焦慮或感恩內容..."
+                onpointerdown="event.stopPropagation()"
+                class="card-scroll-text w-full bg-transparent text-[12px] leading-relaxed text-zinc-600 placeholder-zinc-400 focus:outline-none focus:bg-black/5 rounded-lg px-1 -mx-1 resize-none"
+              ></textarea>
+            </div>
+            <div class="px-4 py-2.5 mt-1 border-t border-zinc-200/80 flex items-center justify-between gap-1.5 bg-black/[0.025] rounded-b-[20px]">
+              <button
+                type="button"
+                data-role="btn-ai-main"
+                class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-[#fdfce7] font-semibold text-[11px] transition"
+              >
+                <span data-role="btn-ai-label">AI 找經文</span>
+              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  data-role="btn-add-reflection"
+                  class="px-2.5 py-1.5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/20 text-zinc-900 font-semibold text-[11px] transition"
+                >＋心得</button>
+                <button
+                  type="button"
+                  data-role="btn-add-gratitude"
+                  class="px-2.5 py-1.5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/20 text-zinc-900 font-semibold text-[11px] transition"
+                >＋感恩</button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div class="px-4 py-1.5 space-y-1">
-          <input
-            type="text"
-            data-role="input-title"
-            placeholder="輸入禱告主題..."
-            onpointerdown="event.stopPropagation()"
-            class="w-full bg-transparent font-bold text-[14px] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-zinc-50 rounded-lg px-1 -mx-1"
-          />
-          <textarea
-            data-role="input-content"
-            rows="3"
-            placeholder="寫下你的焦慮、感謝或靈修心得..."
-            onpointerdown="event.stopPropagation()"
-            class="w-full bg-transparent text-[12px] leading-relaxed text-zinc-600 placeholder-zinc-400 focus:outline-none focus:bg-zinc-50 rounded-lg px-1 -mx-1 resize-none"
-          ></textarea>
-          <div data-role="ref-text" class="text-[10px] font-semibold text-purple-600 hidden"></div>
-        </div>
-
-        <div class="px-4 py-2.5 mt-1 border-t border-zinc-100 flex items-center justify-between gap-1.5 bg-zinc-50/70 rounded-b-[22px]">
           <button
-            data-role="btn-ai-main"
-            class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#a58cf5]/20 hover:bg-[#a58cf5]/35 text-zinc-900 font-bold text-[11px] transition"
+            type="button"
+            data-role="btn-delete-node"
+            class="orbital-delete-btn"
+            title="刪除此禱告節點"
+            aria-label="刪除此禱告節點"
           >
-            <span>✨</span>
-            <span data-role="btn-ai-label">AI 找經文</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"></path>
+            </svg>
+          </button>
+        `;
+
+        cardEl.querySelector('[data-role="btn-delete-node"]').addEventListener('click', (e) => {
+          window.openConfirmDelete(e, node.id);
+        });
+        cardEl.querySelector('[data-role="root-card-delete"]').addEventListener('click', (e) => {
+          window.openConfirmDelete(e, node.id);
+        });
+        cardEl.querySelector('[data-role="root-card-close"]').addEventListener('click', (e) => {
+          window.toggleCollapseBranch(e, node.id);
+        });
+
+        const rootTitleInput = cardEl.querySelector('[data-role="root-card-title"]');
+        rootTitleInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { title: e.target.value }));
+
+        const rootContentInput = cardEl.querySelector('[data-role="input-content"]');
+        rootContentInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { content: e.target.value }));
+
+        cardEl.querySelector('[data-role="btn-ai-main"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.findScriptureWithAI(node.id);
+        });
+        cardEl.querySelector('[data-role="btn-add-reflection"]').addEventListener('click', (e) => {
+          window.addChildBranch(e, node.id, 'reflection');
+        });
+        cardEl.querySelector('[data-role="btn-add-gratitude"]').addEventListener('click', (e) => {
+          window.addChildBranch(e, node.id, 'gratitude');
+        });
+      } else {
+        cardEl.className = 'flow-node is-child-card';
+        cardEl.innerHTML = `
+          <div class="node-port node-port-top" data-role="port-top"></div>
+
+          <div class="px-4 pt-3.5 pb-1.5 space-y-1">
+            <div class="flex items-center justify-between pr-7">
+              <span data-role="floating-badge" class="text-[11px] font-bold tracking-wide text-zinc-500"></span>
+            </div>
+            <input
+              type="text"
+              data-role="input-title"
+              placeholder="輸入標題..."
+              onpointerdown="event.stopPropagation()"
+              class="w-full bg-transparent font-bold text-[14px] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-black/5 rounded-lg px-1 -mx-1"
+            />
+            <textarea
+              data-role="input-content"
+              rows="4"
+              placeholder="寫下你的焦慮、感謝或靈修心得..."
+              onpointerdown="event.stopPropagation()"
+              class="card-scroll-text w-full bg-transparent text-[12px] leading-relaxed text-zinc-600 placeholder-zinc-400 focus:outline-none focus:bg-black/5 rounded-lg px-1 -mx-1 resize-none"
+            ></textarea>
+            <div data-role="ref-text" class="text-[10px] font-semibold text-zinc-500 hidden"></div>
+          </div>
+
+          <button
+            type="button"
+            data-role="btn-delete-node"
+            class="child-delete-btn"
+            title="刪除此節點"
+            aria-label="刪除此節點"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"></path>
+            </svg>
           </button>
 
-          <div class="flex items-center gap-1">
+          <div class="px-4 py-2.5 mt-1 border-t border-zinc-200/80 flex items-center justify-between gap-1.5 bg-black/[0.025] rounded-b-[20px]">
             <button
-              data-role="btn-add-reflection"
-              class="px-2.5 py-1.5 rounded-full bg-[#24ef95]/25 hover:bg-[#24ef95]/45 text-zinc-900 font-bold text-[11px] transition"
-            >＋心得</button>
-            <button
-              data-role="btn-add-gratitude"
-              class="px-2.5 py-1.5 rounded-full bg-[#e4f33b]/45 hover:bg-[#e4f33b]/70 text-zinc-900 font-bold text-[11px] transition"
-            >＋感恩</button>
+              data-role="btn-ai-main"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 text-[#fdfce7] font-semibold text-[11px] transition"
+            >
+              <span data-role="btn-ai-label">AI 找經文</span>
+            </button>
+
+            <div class="flex items-center gap-1">
+              <button
+                data-role="btn-add-reflection"
+                class="px-2.5 py-1.5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/20 text-zinc-900 font-semibold text-[11px] transition"
+              >＋心得</button>
+              <button
+                data-role="btn-add-gratitude"
+                class="px-2.5 py-1.5 rounded-full bg-zinc-900/10 hover:bg-zinc-900/20 text-zinc-900 font-semibold text-[11px] transition"
+              >＋感恩</button>
+            </div>
           </div>
-        </div>
 
-        <div class="node-port node-port-bottom" data-role="port-bottom"></div>
+          <div class="node-port node-port-bottom" data-role="port-bottom"></div>
+          <button data-role="btn-collapse" class="xmind-collapse-pill hidden"></button>
+        `;
 
-        <button data-role="btn-collapse" class="xmind-collapse-pill hidden"></button>
-      `;
+        const titleInput = cardEl.querySelector('[data-role="input-title"]');
+        titleInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { title: e.target.value }));
 
-      const titleInput = cardEl.querySelector('[data-role="input-title"]');
-      titleInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { title: e.target.value }));
+        const contentInput = cardEl.querySelector('[data-role="input-content"]');
+        contentInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { content: e.target.value }));
 
-      const contentInput = cardEl.querySelector('[data-role="input-content"]');
-      contentInput.addEventListener('change', (e) => window.updateNodeFields(node.id, { content: e.target.value }));
+        cardEl.querySelector('[data-role="btn-delete-node"]').addEventListener('click', (e) => {
+          window.openConfirmDelete(e, node.id);
+        });
+        cardEl.querySelector('[data-role="btn-ai-main"]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.findScriptureWithAI(node.id);
+        });
+        cardEl.querySelector('[data-role="btn-add-reflection"]').addEventListener('click', (e) => {
+          window.addChildBranch(e, node.id, 'reflection');
+        });
+        cardEl.querySelector('[data-role="btn-add-gratitude"]').addEventListener('click', (e) => {
+          window.addChildBranch(e, node.id, 'gratitude');
+        });
+        cardEl.querySelector('[data-role="btn-collapse"]').addEventListener('click', (e) => {
+          window.toggleCollapseBranch(e, node.id);
+        });
+      }
 
-      cardEl.querySelector('[data-role="btn-ai-mini"]').addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.findScriptureWithAI(node.id);
+      cardEl.addEventListener('pointerenter', () => {
+        orbitMotion.hoveredRootId = getRootIdOf(node.id);
       });
-      cardEl.querySelector('[data-role="btn-ai-main"]').addEventListener('click', (e) => {
-        e.stopPropagation();
-        window.findScriptureWithAI(node.id);
-      });
-      cardEl.querySelector('[data-role="btn-del"]').addEventListener('click', (e) => {
-        window.openConfirmDelete(e, node.id);
-      });
-      cardEl.querySelector('[data-role="btn-check"]').addEventListener('click', (e) => {
-        window.toggleAnswered(e, node.id);
-      });
-      cardEl.querySelector('[data-role="btn-add-reflection"]').addEventListener('click', (e) => {
-        window.addChildBranch(e, node.id, 'reflection');
-      });
-      cardEl.querySelector('[data-role="btn-add-gratitude"]').addEventListener('click', (e) => {
-        window.addChildBranch(e, node.id, 'gratitude');
-      });
-      cardEl.querySelector('[data-role="btn-collapse"]').addEventListener('click', (e) => {
-        window.toggleCollapseBranch(e, node.id);
+      cardEl.addEventListener('pointerleave', () => {
+        if (orbitMotion.hoveredRootId === getRootIdOf(node.id)) {
+          orbitMotion.hoveredRootId = null;
+        }
       });
 
       setupCardDrag(cardEl, node.id);
       return cardEl;
+    }
+
+    function updateRootLabelSide(cardEl, renderedX) {
+      const centerX = renderedX + ROOT_HALF;
+      const isLeftSide = centerX < ORBIT_CX;
+
+      const pill = cardEl.querySelector('[data-role="orbital-label-pill"]');
+      if (pill) {
+        pill.classList.toggle('side-right', isLeftSide);
+        pill.classList.toggle('side-left', !isLeftSide);
+      }
+
+      const rootCard = cardEl.querySelector('[data-role="root-card"]');
+      if (rootCard) {
+        rootCard.classList.toggle('card-side-left', isLeftSide);
+        rootCard.classList.toggle('card-side-right', !isLeftSide);
+      }
+    }
+
+    function setNodeElementPos(el, x, y) {
+      el.style.setProperty('--node-x', `${x.toFixed(3)}px`);
+      el.style.setProperty('--node-y', `${y.toFixed(3)}px`);
     }
 
     function updateNodeElementInPlace(cardEl, node, query) {
@@ -2047,29 +3094,73 @@
         (node.content && node.content.toLowerCase().includes(query));
       const isDimmed = !matchesFilter || !matchesSearch;
 
+      const renderedPos = getRenderedNodePos(node);
       if (!state.draggingNodeIds.has(node.id)) {
-        cardEl.style.left = `${node.x}px`;
-        cardEl.style.top = `${node.y}px`;
+        setNodeElementPos(cardEl, renderedPos.x, renderedPos.y);
       }
 
       cardEl.classList.toggle('is-selected', isSelected);
-      cardEl.style.opacity = isDimmed ? '0.22' : '1';
+      const targetOpacity = isDimmed ? '0.22' : '1';
+      cardEl.style.setProperty('--node-target-opacity', targetOpacity);
+      cardEl.style.opacity = targetOpacity;
 
-      cardEl.querySelector('[data-role="port-top"]').style.backgroundColor = meta.portColor;
-      cardEl.querySelector('[data-role="port-bottom"]').style.backgroundColor = meta.portColor;
+      if (cardEl.dataset.nodeKind === 'root') {
+        const isRootOpen = !node.collapsed;
+        cardEl.classList.toggle('is-root-open', isRootOpen);
+
+        const coreEl = cardEl.querySelector('[data-role="medallion-core"]');
+        coreEl.style.backgroundColor = meta.medallionBg;
+        if (coreEl.dataset.iconType !== `${node.type}-${node.answered}`) {
+          coreEl.dataset.iconType = `${node.type}-${node.answered}`;
+          coreEl.innerHTML = meta.svgIcon;
+        }
+
+        const titleEl = cardEl.querySelector('[data-role="orbital-title"]');
+        titleEl.textContent = node.title || '未命名禱告';
+
+        const countEl = cardEl.querySelector('[data-role="orbital-count"]');
+        if (childCount > 0) {
+          countEl.classList.remove('hidden');
+          countEl.textContent = node.collapsed ? `+${childCount}` : `−${childCount}`;
+          countEl.style.color = node.collapsed ? '#fdfce7' : '#a1a1aa';
+        } else {
+          countEl.classList.add('hidden');
+        }
+
+        const cardBadgeEl = cardEl.querySelector('[data-role="root-card-badge"]');
+        if (cardBadgeEl) cardBadgeEl.textContent = meta.floatingBadge;
+
+        const cardSummaryEl = cardEl.querySelector('[data-role="root-card-summary"]');
+        if (cardSummaryEl) {
+          if (childCount > 0) {
+            cardSummaryEl.textContent = `· ${childCount} 個子分支`;
+            cardSummaryEl.classList.remove('hidden');
+          } else {
+            cardSummaryEl.classList.add('hidden');
+          }
+        }
+
+        const cardTitleInput = cardEl.querySelector('[data-role="root-card-title"]');
+        if (cardTitleInput && document.activeElement !== cardTitleInput && cardTitleInput.value !== (node.title || '')) {
+          cardTitleInput.value = node.title || '';
+        }
+
+        const cardContentInput = cardEl.querySelector('[data-role="input-content"]');
+        if (cardContentInput && document.activeElement !== cardContentInput && cardContentInput.value !== (node.content || '')) {
+          cardContentInput.value = node.content || '';
+        }
+
+        const aiMainBtn = cardEl.querySelector('[data-role="btn-ai-main"]');
+        const aiLabel = cardEl.querySelector('[data-role="btn-ai-label"]');
+        if (aiMainBtn) aiMainBtn.disabled = isLoadingAI;
+        if (aiLabel) aiLabel.textContent = isLoadingAI ? '查考中...' : 'AI 找經文';
+
+        updateRootLabelSide(cardEl, renderedPos.x);
+        return;
+      }
 
       const badgeEl = cardEl.querySelector('[data-role="floating-badge"]');
       badgeEl.textContent = meta.floatingBadge;
-      badgeEl.className = `absolute -top-3.5 left-5 px-3 py-1 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1 tracking-wide ${meta.floatingBadgeClass}`;
-
-      cardEl.querySelector('[data-role="icon-1"]').textContent = meta.iconPrimary;
-      cardEl.querySelector('[data-role="icon-2"]').textContent = meta.iconSecondary;
-      cardEl.querySelector('[data-role="cat-label"]').textContent = meta.categoryName;
-
-      const checkBtn = cardEl.querySelector('[data-role="btn-check"]');
-      checkBtn.className = node.answered
-        ? 'w-6 h-6 rounded-full bg-[#24ef95] text-zinc-950 text-[11px] font-black flex items-center justify-center transition shadow-sm'
-        : 'w-6 h-6 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white text-[11px] font-bold flex items-center justify-center transition shadow-sm';
 
       const titleInput = cardEl.querySelector('[data-role="input-title"]');
       if (document.activeElement !== titleInput && titleInput.value !== (node.title || '')) {
@@ -2100,8 +3191,8 @@
         collapseBtn.textContent = `${node.collapsed ? '+' : '−'} ${childCount}`;
         collapseBtn.className = `xmind-collapse-pill ${
           node.collapsed
-            ? 'bg-[#24ef95] text-zinc-950'
-            : 'bg-[#222227] text-white border border-white/20'
+            ? 'bg-[#fdfce7] text-zinc-950'
+            : 'bg-[#1a1a1f] text-white border border-white/25'
         }`;
         collapseBtn.title = node.collapsed ? `展開 ${childCount} 個子分支` : '收合分支';
       } else {
@@ -2109,9 +3200,70 @@
       }
     }
 
-    function renderConnections() {
-      const SVG_OFFSET = 12000;
-      const fragments = [];
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const SVG_OFFSET = 12000;
+    const edgeElements = new Map(); // childNodeId -> { group, path, dot1, dot2 }
+    let orbitGuidesGroup = null;
+    let edgesGroup = null;
+    let lastRenderedOrbitRadius = -1;
+
+    function ensureSvgLayers() {
+      if (!orbitGuidesGroup) {
+        orbitGuidesGroup = document.createElementNS(SVG_NS, 'g');
+        orbitGuidesGroup.setAttribute('id', 'orbit-guides-group');
+        connectionsLayer.appendChild(orbitGuidesGroup);
+      }
+      if (!edgesGroup) {
+        edgesGroup = document.createElementNS(SVG_NS, 'g');
+        edgesGroup.setAttribute('id', 'edges-group');
+        connectionsLayer.appendChild(edgesGroup);
+      }
+    }
+
+    function updateOrbitGuideRing() {
+      ensureSvgLayers();
+      const orbitR = getOrbitRadius();
+      updateOrbitAddButtonPosition();
+      if (orbitR === lastRenderedOrbitRadius) return;
+      lastRenderedOrbitRadius = orbitR;
+
+      const cx = ORBIT_CX + SVG_OFFSET;
+      const cy = ORBIT_CY + SVG_OFFSET;
+      orbitGuidesGroup.innerHTML =
+        `<circle cx="${cx}" cy="${cy}" r="${orbitR}" class="orbit-ring-main" />` +
+        `<circle cx="${cx}" cy="${cy}" r="${orbitR + 260}" class="orbit-ring-outer" />` +
+        `<circle cx="${cx}" cy="${cy}" r="${orbitR + FIRST_RADIAL_LAYER_STEP}" class="orbit-ring-halo" />`;
+    }
+
+    function getBoxEdgePoint(cx, cy, hw, hh, tx, ty) {
+      const dx = tx - cx;
+      const dy = ty - cy;
+      if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return { x: cx, y: cy };
+      const scaleX = Math.abs(dx) > 0.001 ? hw / Math.abs(dx) : Infinity;
+      const scaleY = Math.abs(dy) > 0.001 ? hh / Math.abs(dy) : Infinity;
+      const t = Math.min(scaleX, scaleY);
+      return { x: cx + dx * t, y: cy + dy * t };
+    }
+
+    function getNodeEdgePoint(node, cx, cy, hw, hh, tx, ty) {
+      if (isRootNode(node)) {
+        if (!node.collapsed) {
+          return getBoxEdgePoint(cx, cy, hw, hh, tx, ty);
+        }
+        const dx = tx - cx;
+        const dy = ty - cy;
+        const d = Math.hypot(dx, dy) || 1;
+        return { x: cx + (dx / d) * hw, y: cy + (dy / d) * hw };
+      }
+      return getBoxEdgePoint(cx, cy, hw, hh, tx, ty);
+    }
+
+    function renderConnections(revealDelays = null, retractDelays = null) {
+      ensureSvgLayers();
+      updateOrbitGuideRing();
+
+      const lineColor = '#71717a';
+      const activeEdgeIds = new Set();
 
       for (const node of state.nodes.values()) {
         if (!node.parentId || !state.nodes.has(node.parentId)) continue;
@@ -2120,29 +3272,205 @@
         const parent = state.nodes.get(node.parentId);
         if (isNodeHiddenByCollapse(parent)) continue;
 
-        const parentEl = state.nodeElements.get(parent.id);
-        const childEl = state.nodeElements.get(node.id);
-        const parentW = parentEl ? parentEl.offsetWidth : 300;
-        const parentH = parentEl ? parentEl.offsetHeight : 195;
-        const childW = childEl ? childEl.offsetWidth : 300;
+        activeEdgeIds.add(node.id);
 
-        const meta = getNodeVisualMeta(node.type, node.answered);
-        const x1 = parent.x + parentW / 2 + SVG_OFFSET;
-        const y1 = parent.y + parentH + SVG_OFFSET;
-        const x2 = node.x + childW / 2 + SVG_OFFSET;
-        const y2 = node.y + SVG_OFFSET;
+        const parentSize = getNodeHalfSize(parent);
+        const childSize = getNodeHalfSize(node);
 
-        const deltaY = Math.max(45, Math.abs(y2 - y1) * 0.5);
-        const d = `M ${x1} ${y1} C ${x1} ${y1 + deltaY}, ${x2} ${y2 - deltaY}, ${x2} ${y2}`;
+        const pPos = getRenderedNodePos(parent);
+        const cPos = getRenderedNodePos(node);
 
-        fragments.push(
-          `<path d="${d}" stroke="${meta.lineColor}" class="flow-connector" />` +
-          `<circle cx="${x1}" cy="${y1}" r="3.5" fill="${meta.lineColor}" />` +
-          `<circle cx="${x2}" cy="${y2}" r="3.5" fill="${meta.lineColor}" />`
-        );
+        let pcx = pPos.x + parentSize.hw + SVG_OFFSET;
+        let pcy = pPos.y + parentSize.hh + SVG_OFFSET;
+        let edgeHw = parentSize.hw;
+        let edgeHh = parentSize.hh;
+
+        if (isRootNode(parent) && !parent.collapsed) {
+          const box = getRootCardBox(parent, pPos);
+          pcx = box.cx + SVG_OFFSET;
+          pcy = box.cy + SVG_OFFSET;
+          edgeHw = box.w / 2;
+          edgeHh = box.h / 2;
+        }
+
+        const ccx = cPos.x + childSize.hw + SVG_OFFSET;
+        const ccy = cPos.y + childSize.hh + SVG_OFFSET;
+
+        const p1 = getNodeEdgePoint(parent, pcx, pcy, edgeHw, edgeHh, ccx, ccy);
+        const p2 = getNodeEdgePoint(node, ccx, ccy, childSize.hw, childSize.hh, pcx, pcy);
+
+        const vx = p2.x - p1.x;
+        const vy = p2.y - p1.y;
+        const dist = Math.hypot(vx, vy) || 1;
+        const pull = Math.min(90, dist * 0.35);
+
+        // 沿著母集向外的放射方向拉出平滑貝茲曲線
+        const outAngle = Math.atan2(pcy - (ORBIT_CY + SVG_OFFSET), pcx - (ORBIT_CX + SVG_OFFSET));
+        const c1x = p1.x + Math.cos(outAngle) * pull;
+        const c1y = p1.y + Math.sin(outAngle) * pull;
+        const c2x = p2.x - (vx / dist) * pull;
+        const c2y = p2.y - (vy / dist) * pull;
+
+        const d = `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+
+        let edgeObj = edgeElements.get(node.id);
+        if (!edgeObj) {
+          const group = document.createElementNS(SVG_NS, 'g');
+          const path = document.createElementNS(SVG_NS, 'path');
+          path.setAttribute('class', 'flow-connector');
+          path.setAttribute('stroke', lineColor);
+          path.setAttribute('pathLength', '100');
+
+          const dot1 = document.createElementNS(SVG_NS, 'circle');
+          dot1.setAttribute('r', '3.5');
+          dot1.setAttribute('fill', lineColor);
+
+          const dot2 = document.createElementNS(SVG_NS, 'circle');
+          dot2.setAttribute('r', '3.5');
+          dot2.setAttribute('fill', lineColor);
+
+          group.appendChild(path);
+          group.appendChild(dot1);
+          group.appendChild(dot2);
+          edgesGroup.appendChild(group);
+
+          edgeObj = { group, path, dot1, dot2 };
+          edgeElements.set(node.id, edgeObj);
+        }
+
+        edgeObj.path.setAttribute('d', d);
+        edgeObj.dot1.setAttribute('cx', p1.x.toFixed(1));
+        edgeObj.dot1.setAttribute('cy', p1.y.toFixed(1));
+        edgeObj.dot2.setAttribute('cx', p2.x.toFixed(1));
+        edgeObj.dot2.setAttribute('cy', p2.y.toFixed(1));
+
+        if (revealDelays && revealDelays.has(node.id)) {
+          const delayMs = revealDelays.get(node.id);
+          edgeObj.path.classList.remove('connector-path-reveal', 'connector-path-retract');
+          edgeObj.dot1.classList.remove('connector-dot-reveal', 'connector-dot-retract');
+          edgeObj.dot2.classList.remove('connector-dot-reveal', 'connector-dot-retract');
+
+          edgeObj.path.style.setProperty('--reveal-delay', `${delayMs}ms`);
+          edgeObj.dot1.style.setProperty('--reveal-delay', `${delayMs}ms`);
+          edgeObj.dot2.style.setProperty('--reveal-delay', `${delayMs + 220}ms`);
+
+          void edgeObj.path.getBoundingClientRect();
+          edgeObj.path.classList.add('connector-path-reveal');
+          edgeObj.dot1.classList.add('connector-dot-reveal');
+          edgeObj.dot2.classList.add('connector-dot-reveal');
+
+          const clearPathAnim = (evt) => {
+            if (evt.animationName !== 'connectorShootOut') return;
+            edgeObj.path.classList.remove('connector-path-reveal');
+            edgeObj.dot1.classList.remove('connector-dot-reveal');
+            edgeObj.dot2.classList.remove('connector-dot-reveal');
+            edgeObj.path.removeEventListener('animationend', clearPathAnim);
+          };
+          edgeObj.path.addEventListener('animationend', clearPathAnim);
+        } else if (retractDelays && retractDelays.has(node.id)) {
+          const delayMs = retractDelays.get(node.id);
+          edgeObj.path.classList.remove('connector-path-reveal', 'connector-path-retract');
+          edgeObj.dot1.classList.remove('connector-dot-reveal', 'connector-dot-retract');
+          edgeObj.dot2.classList.remove('connector-dot-reveal', 'connector-dot-retract');
+
+          edgeObj.path.style.setProperty('--reveal-delay', `${delayMs}ms`);
+          edgeObj.dot2.style.setProperty('--reveal-delay', `${delayMs}ms`);
+          edgeObj.dot1.style.setProperty('--reveal-delay', `${delayMs + 320}ms`);
+
+          void edgeObj.path.getBoundingClientRect();
+          edgeObj.path.classList.add('connector-path-retract');
+          edgeObj.dot1.classList.add('connector-dot-retract');
+          edgeObj.dot2.classList.add('connector-dot-retract');
+        }
       }
 
-      connectionsLayer.innerHTML = fragments.join('');
+      for (const [edgeId, edgeObj] of edgeElements.entries()) {
+        if (!activeEdgeIds.has(edgeId)) {
+          edgeObj.group.remove();
+          edgeElements.delete(edgeId);
+        }
+      }
+    }
+
+    function isAnyBranchExpanded() {
+      for (const node of state.nodes.values()) {
+        if (isRootNode(node) && !node.collapsed) return true;
+      }
+      return false;
+    }
+
+    function isSubtreePaused(rootId) {
+      if (isAnyBranchExpanded()) return true;
+      if (orbitMotion.hoveredRootId === rootId) return true;
+      if (state.selectedNodeId && getRootIdOf(state.selectedNodeId) === rootId) return true;
+      for (const dragId of state.draggingNodeIds) {
+        if (getRootIdOf(dragId) === rootId) return true;
+      }
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        const focusedCard = activeEl.closest('.flow-node');
+        if (focusedCard && focusedCard.dataset.nodeId && getRootIdOf(focusedCard.dataset.nodeId) === rootId) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function startOrbitAnimationLoop() {
+      if (orbitMotion.started) return;
+      orbitMotion.started = true;
+      orbitMotion.lastFrameTime = performance.now();
+
+      function tick(now) {
+        const dt = Math.min(0.05, Math.max(0, (now - orbitMotion.lastFrameTime) / 1000));
+        orbitMotion.lastFrameTime = now;
+
+        const roots = getRootNodes();
+        const activeRootIds = new Set();
+        let anyMoved = false;
+
+        for (let i = 0; i < roots.length; i++) {
+          const root = roots[i];
+          activeRootIds.add(root.id);
+          let entry = orbitMotion.rootSway.get(root.id);
+          if (!entry) {
+            entry = { angle: 0, phaseTime: 0 };
+            orbitMotion.rootSway.set(root.id, entry);
+          }
+
+          if (!isSubtreePaused(root.id)) {
+            entry.phaseTime += dt;
+            // 在圓形軌道上極緩慢來回擺盪移動
+            const sharedSwing = Math.sin(entry.phaseTime * 0.13) * 0.13;
+            const gentleBreath = Math.sin(entry.phaseTime * 0.085 + i * 2.1) * 0.03;
+            const targetAngle = sharedSwing + gentleBreath;
+            entry.angle += (targetAngle - entry.angle) * Math.min(1, dt * 2.0);
+            anyMoved = true;
+          }
+        }
+
+        for (const id of [...orbitMotion.rootSway.keys()]) {
+          if (!activeRootIds.has(id)) orbitMotion.rootSway.delete(id);
+        }
+
+        if (anyMoved && state.nodeElements.size > 0) {
+          for (const [id, cardEl] of state.nodeElements.entries()) {
+            if (state.draggingNodeIds.has(id)) continue;
+            const node = state.nodes.get(id);
+            if (!node) continue;
+            const pos = getRenderedNodePos(node);
+            setNodeElementPos(cardEl, pos.x, pos.y);
+            if (cardEl.dataset.nodeKind === 'root') {
+              updateRootLabelSide(cardEl, pos.x);
+            }
+          }
+          renderConnections();
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
     }
 
     window.toggleAnswered = async function (e, nodeId) {
@@ -2171,6 +3499,7 @@
       let startX = 0, startY = 0;
       let dragStartPositions = new Map();
       let moved = false;
+      let pointerDownInsideCard = false;
       let rafPending = false;
 
       cardEl.addEventListener('pointerdown', (e) => {
@@ -2182,11 +3511,30 @@
 
         isDragging = true;
         moved = false;
+        pointerDownInsideCard = Boolean(e.target && e.target.closest && e.target.closest('.orbital-root-card'));
         startX = e.clientX;
         startY = e.clientY;
 
         dragStartPositions.clear();
         state.draggingNodeIds.clear();
+
+        // 先將該母集樹目前的軌道位移烘焙進座標，確保拖曳起步零跳動
+        const rootId = getRootIdOf(nodeId);
+        const swayEntry = orbitMotion.rootSway.get(rootId);
+        if (swayEntry && Math.abs(swayEntry.angle) > 0.0001) {
+          const rootAllIds = [rootId, ...getDescendantIds(rootId)];
+          for (const rid of rootAllIds) {
+            const rn = state.nodes.get(rid);
+            if (rn) {
+              const { hw, hh } = getNodeHalfSize(rn);
+              const baked = rotatePointAroundOrbit(rn.x, rn.y, swayEntry.angle, hw, hh);
+              rn.x = baked.x;
+              rn.y = baked.y;
+            }
+          }
+          swayEntry.angle = 0;
+          swayEntry.phaseTime = 0;
+        }
 
         // 收集母集與所有階層子集（包含目前收合的子分支）
         const descendantIds = getDescendantIds(nodeId);
@@ -2209,6 +3557,7 @@
           if (prevEl) prevEl.classList.remove('is-selected');
           state.selectedNodeId = nodeId;
           cardEl.classList.add('is-selected');
+          renderRootInspector();
         }
 
         cardEl.classList.add('is-dragging');
@@ -2220,13 +3569,13 @@
 
         const dx = (e.clientX - startX) / state.scale;
         const dy = (e.clientY - startY) / state.scale;
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
 
         for (const [id, orig] of dragStartPositions.entries()) {
           const targetNode = state.nodes.get(id);
           if (targetNode) {
-            targetNode.x = Math.round(orig.x + dx);
-            targetNode.y = Math.round(orig.y + dy);
+            targetNode.x = orig.x + dx;
+            targetNode.y = orig.y + dy;
           }
         }
 
@@ -2237,8 +3586,10 @@
               const targetNode = state.nodes.get(id);
               const targetEl = state.nodeElements.get(id);
               if (targetNode && targetEl) {
-                targetEl.style.left = `${targetNode.x}px`;
-                targetEl.style.top = `${targetNode.y}px`;
+                setNodeElementPos(targetEl, targetNode.x, targetNode.y);
+                if (targetEl.dataset.nodeKind === 'root') {
+                  updateRootLabelSide(targetEl, targetNode.x);
+                }
               }
             }
             renderConnections();
@@ -2258,7 +3609,11 @@
           const childEl = state.nodeElements.get(id);
           if (childEl) childEl.classList.remove('is-subtree-dragging');
           const targetNode = state.nodes.get(id);
-          if (targetNode) movedNodes.push(targetNode);
+          if (targetNode) {
+            targetNode.x = Math.round(targetNode.x * 100) / 100;
+            targetNode.y = Math.round(targetNode.y * 100) / 100;
+            movedNodes.push(targetNode);
+          }
         }
 
         state.draggingNodeIds.clear();
@@ -2266,7 +3621,12 @@
 
         if (moved && movedNodes.length > 0) {
           await saveMultipleNodesToCloud(movedNodes);
+        } else if (!moved && cardEl.dataset.nodeKind === 'root') {
+          if (!pointerDownInsideCard) {
+            await window.toggleCollapseBranch({ stopPropagation: () => {} }, nodeId);
+          }
         }
+        pointerDownInsideCard = false;
       };
 
       cardEl.addEventListener('pointerup', endDrag);
@@ -2277,7 +3637,7 @@
     let panStartX = 0, panStartY = 0;
 
     viewport.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.flow-node')) return;
+      if (e.target.closest('.flow-node') || e.target.closest('#daily-verse-core') || e.target.closest('#orbit-add-btn')) return;
       isPanning = true;
       viewport.classList.add('is-panning');
       panStartX = e.clientX - state.panX;
@@ -2287,6 +3647,7 @@
         const prevEl = state.nodeElements.get(state.selectedNodeId);
         if (prevEl) prevEl.classList.remove('is-selected');
         state.selectedNodeId = null;
+        renderRootInspector();
       }
     });
 
@@ -2305,6 +3666,27 @@
     });
 
     viewport.addEventListener('wheel', (e) => {
+      const cardUnderPointer = e.target && e.target.closest
+        ? e.target.closest('.flow-node.is-child-card, .orbital-root-card')
+        : null;
+      if (cardUnderPointer) {
+        const scrollEl = e.target.closest('textarea, .card-scroll-text') ||
+          cardUnderPointer.querySelector('[data-role="input-content"]');
+        if (scrollEl) {
+          const canScrollY = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+          if (e.target === scrollEl && canScrollY) {
+            e.stopPropagation();
+            return;
+          }
+          if (canScrollY) {
+            scrollEl.scrollTop += e.deltaY;
+          }
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
       const nextScale = Math.min(2.2, Math.max(0.25, state.scale * factor));
@@ -2319,32 +3701,16 @@
     }, { passive: false });
 
     let pendingWorldPos = null;
+    let forceCreateAsOrbitRoot = false;
+
     viewport.addEventListener('dblclick', (e) => {
-      if (e.target.closest('.flow-node')) return;
+      if (e.target.closest('.flow-node') || e.target.closest('#daily-verse-core') || e.target.closest('#orbit-add-btn')) return;
       pendingWorldPos = {
-        x: Math.round((e.clientX - state.panX) / state.scale - 150),
-        y: Math.round((e.clientY - state.panY) / state.scale - 90)
+        x: Math.round((e.clientX - state.panX) / state.scale - ROOT_HALF),
+        y: Math.round((e.clientY - state.panY) / state.scale - ROOT_HALF)
       };
+      forceCreateAsOrbitRoot = true;
       window.openCreateModal('anxiety');
-    });
-
-    window.handleTemplateDragStart = function (e, type) {
-      e.dataTransfer.setData('text/plain', type);
-    };
-
-    viewport.addEventListener('dragover', (e) => {
-      e.preventDefault();
-    });
-
-    viewport.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const type = e.dataTransfer.getData('text/plain');
-      if (!type) return;
-      pendingWorldPos = {
-        x: Math.round((e.clientX - state.panX) / state.scale - 150),
-        y: Math.round((e.clientY - state.panY) / state.scale - 90)
-      };
-      window.openCreateModal(type);
     });
 
     window.zoomCanvas = function (delta) {
@@ -2358,42 +3724,60 @@
     };
 
     window.resetView = function () {
-      state.scale = 1;
-      state.panX = window.innerWidth / 2 - 150;
-      state.panY = 130;
+      state.scale = 0.85;
+      state.panX = window.innerWidth / 2;
+      state.panY = (window.innerHeight + 48) / 2;
       applyViewportTransform();
     };
 
     window.fitAllNodes = function () {
       const visible = [...state.nodes.values()].filter(n => !isNodeHiddenByCollapse(n));
-      if (visible.length === 0) {
-        window.resetView();
-        return;
-      }
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const orbitR = getOrbitRadius();
+      let minX = ORBIT_CX - orbitR - 140;
+      let minY = ORBIT_CY - orbitR - 80;
+      let maxX = ORBIT_CX + orbitR + 140;
+      let maxY = ORBIT_CY + orbitR + 90;
+
       for (const n of visible) {
-        minX = Math.min(minX, n.x);
-        minY = Math.min(minY, n.y);
-        maxX = Math.max(maxX, n.x + 300);
-        maxY = Math.max(maxY, n.y + 220);
+        const pos = getRenderedNodePos(n);
+        const { hw, hh } = getNodeHalfSize(n);
+        minX = Math.min(minX, pos.x - 40);
+        minY = Math.min(minY, pos.y - 30);
+        maxX = Math.max(maxX, pos.x + hw * 2 + 40);
+        maxY = Math.max(maxY, pos.y + hh * 2 + 30);
+
+        if (isRootNode(n) && !n.collapsed) {
+          const box = getRootCardBox(n, pos);
+          minX = Math.min(minX, box.x - 40);
+          minY = Math.min(minY, box.y - 30);
+          maxX = Math.max(maxX, box.x + box.w + 40);
+          maxY = Math.max(maxY, box.y + box.h + 30);
+        }
       }
-      const usableW = window.innerWidth >= 1024 ? window.innerWidth - 560 : window.innerWidth - 48;
-      const usableH = window.innerHeight - 140;
-      const scaleX = usableW / (maxX - minX + 100);
-      const scaleY = usableH / (maxY - minY + 100);
-      state.scale = Math.min(1.05, Math.max(0.3, Math.min(scaleX, scaleY)));
+
+      const usableW = window.innerWidth - 96;
+      const usableH = window.innerHeight - 130;
+      const scaleX = usableW / (maxX - minX + 80);
+      const scaleY = usableH / (maxY - minY + 80);
+      state.scale = Math.min(1.02, Math.max(0.32, Math.min(scaleX, scaleY)));
 
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       state.panX = window.innerWidth / 2 - centerX * state.scale;
-      state.panY = (window.innerHeight + 56) / 2 - centerY * state.scale;
+      state.panY = (window.innerHeight + 48) / 2 - centerY * state.scale;
       applyViewportTransform();
     };
 
     // ==========================================
-    // 10. 彈窗、篩選與手機側邊欄控制
+    // 10. 彈窗與篩選控制
     // ==========================================
     let currentModalType = 'anxiety';
+
+    window.openOrbitCreateModal = function () {
+      forceCreateAsOrbitRoot = true;
+      pendingWorldPos = null;
+      window.openCreateModal('anxiety');
+    };
 
     window.openCreateModal = function (type = 'anxiety') {
       selectModalType(type);
@@ -2410,6 +3794,7 @@
       modal.classList.add('hidden');
       modal.classList.remove('flex');
       pendingWorldPos = null;
+      forceCreateAsOrbitRoot = false;
     };
 
     window.selectModalType = function (type) {
@@ -2450,15 +3835,26 @@
         reflection: '靈修心得'
       };
 
-      const pos = pendingWorldPos || {
-        x: Math.round((window.innerWidth / 2 - state.panX) / state.scale - 150 + (Math.random() * 50 - 25)),
-        y: Math.round((window.innerHeight / 2 - state.panY) / state.scale - 90 + (Math.random() * 50 - 25))
-      };
+      const parentId = (!forceCreateAsOrbitRoot && state.selectedNodeId && state.nodes.has(state.selectedNodeId))
+        ? state.selectedNodeId
+        : null;
+
+      let pos = pendingWorldPos;
+      const createdFromOrbitBtn = forceCreateAsOrbitRoot && !pendingWorldPos;
+      if (!pos) {
+        if (parentId) {
+          const parent = state.nodes.get(parentId);
+          const siblings = getChildrenOf(parentId);
+          pos = computeOutwardChildPosition(parent, siblings.length, siblings.length + 1);
+        } else {
+          pos = computeNextOrbitRootPosition();
+        }
+      }
 
       const newId = 'node-' + crypto.randomUUID().slice(0, 8);
       const newNode = {
         id: newId,
-        parentId: state.selectedNodeId || null,
+        parentId: parentId,
         type: currentModalType,
         title: titleInput || defaultTitles[currentModalType],
         content: contentInput,
@@ -2471,12 +3867,22 @@
         updatedAt: Date.now()
       };
 
+      forceCreateAsOrbitRoot = false;
       window.closeNodeModal();
       state.nodes.set(newId, newNode);
       state.selectedNodeId = newId;
-      syncBoardDOM(new Set([newId]));
+
+      if (createdFromOrbitBtn) {
+        applyOrbitalRadialLayout();
+      }
+
+      if (parentId) {
+        syncBoardDOM(new Set(), new Map([[newId, 0]]));
+      } else {
+        syncBoardDOM(new Set([newId]));
+      }
       await saveNodeToCloud(newNode);
-      showToast("✨ 已貼上禱告節點！", "success");
+      showToast("已新增禱告節點至軌道！", "success");
 
       if (autoAI) {
         await window.findScriptureWithAI(newId);
@@ -2511,11 +3917,11 @@
     window.setFilter = function (type) {
       state.filterType = type;
       document.querySelectorAll('.nav-filter-btn').forEach(btn => {
-        btn.className = 'nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white transition';
+        btn.className = 'nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white whitespace-nowrap shrink-0 transition';
       });
       const activeBtn = document.getElementById(`nav-filter-${type}`);
       if (activeBtn) {
-        activeBtn.className = 'nav-filter-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-zinc-950 shadow transition';
+        activeBtn.className = 'nav-filter-btn px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#fdfce7] text-zinc-950 whitespace-nowrap shrink-0 transition';
       }
       syncBoardDOM();
     };
@@ -2523,18 +3929,6 @@
     window.handleSearch = function (val) {
       state.searchQuery = val;
       syncBoardDOM();
-    };
-
-    window.toggleMobileDrawer = function (side) {
-      const leftEl = document.getElementById('left-sidebar');
-      const rightEl = document.getElementById('right-sidebar');
-      if (side === 'left') {
-        leftEl.classList.toggle('-translate-x-[120%]');
-        rightEl.classList.add('translate-x-[120%]');
-      } else {
-        rightEl.classList.toggle('translate-x-[120%]');
-        leftEl.classList.add('-translate-x-[120%]');
-      }
     };
 
     function escapeHtml(str) {
@@ -2545,9 +3939,12 @@
         .replace(/"/g, '&quot;');
     }
 
-    // 啟動初始化
+    // 啟動初始化：每日經文圓盤、軌道按鈕與緩慢擺盪循環
+    renderDailyVerse(false);
+    updateOrbitAddButtonPosition();
     applyViewportTransform();
     initAuthAndCloud();
+    startOrbitAnimationLoop();
   </script>
 </body>
 </html>
